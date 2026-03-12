@@ -53,7 +53,7 @@ netctrl/
 ### 1. Клонируй репозиторий
 
 ```bash
-git clone https://github.com/ВАШ_НИК/netctrl.git
+git clone https://github.com/imbazyx/openwrt-netctrl.git
 cd netctrl
 ```
 
