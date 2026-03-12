@@ -1,0 +1,14 @@
+services:
+  netctrl:
+    build: .
+    container_name: netctrl
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PORT=3000
+      - DB_PATH=/app/data/netctrl.db
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1

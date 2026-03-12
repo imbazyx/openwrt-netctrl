@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenWRT NetCtrl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link href="public/css2.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#080809;--bg2:#0a0a0c;--bg3:#111113;--bg4:#1a1a1e;
+  --surface:rgba(255,255,255,0.025);--surface2:rgba(255,255,255,0.04);--surface3:rgba(255,255,255,0.07);
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#e5e7eb;--text2:#9ca3af;--text3:#6b7280;--text4:#4b5563;
+  --accent:#6366f1;--accent-bg:rgba(99,102,241,0.12);--accent-border:rgba(99,102,241,0.35);
+  --green:#22c55e;--green-bg:rgba(34,197,94,0.1);--green-border:rgba(34,197,94,0.3);
+  --yellow:#f59e0b;--yellow-bg:rgba(245,158,11,0.12);--yellow-border:rgba(245,158,11,0.3);
+  --red:#ef4444;--red-bg:rgba(239,68,68,0.1);--red-border:rgba(239,68,68,0.25);
+  --cyan:#22d3ee;--mono:'JetBrains Mono',monospace;--sans:'Sora','Segoe UI',sans-serif;
+  --radius:10px;--radius-sm:7px;
+}
+[data-theme="light"] {
+  --bg:#f1f5f9;--bg2:#ffffff;--bg3:#f8fafc;--bg4:#e2e8f0;
+  --surface:rgba(0,0,0,0.03);--surface2:rgba(0,0,0,0.05);--surface3:rgba(0,0,0,0.08);
+  --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.15);
+  --text:#0f172a;--text2:#475569;--text3:#64748b;--text4:#94a3b8;
+  --accent:#4f46e5;--accent-bg:rgba(79,70,229,0.08);--accent-border:rgba(79,70,229,0.3);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px}
+#app{display:flex;height:100vh;overflow:hidden}
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:2px}
+/* ── Sidebar ── */
+#sidebar{width:224px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;z-index:10}
+.logo{display:flex;align-items:center;gap:10px;padding:18px 16px 20px}
+.logo-icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#22c55e);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.logo-name{font-weight:700;font-size:13px;letter-spacing:-0.02em;line-height:1.2}
+.logo-sub{font-size:10px;color:var(--text4)}
+nav{padding:0 8px;flex:1;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--radius-sm);color:var(--text3);cursor:pointer;margin-bottom:2px;font-size:13px;border:1px solid transparent;transition:all .15s;user-select:none;position:relative}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent-bg);color:#a5b4fc;border-color:var(--accent-border);font-weight:600}
+[data-theme="light"] .nav-item.active{color:var(--accent)}
+.nav-icon{font-size:15px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--yellow);color:#000;border-radius:4px;font-size:10px;padding:1px 5px;font-weight:700}
+.sidebar-stats{padding:12px 16px;border-top:1px solid var(--border)}
+.stats-title{font-size:10px;color:var(--text4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.stat-row{display:flex;justify-content:space-between;margin-bottom:3px;font-size:12px}
+.stat-count{font-family:var(--mono);font-weight:600}
+.sidebar-user{padding:8px 16px 14px}
+.user-chip{background:var(--surface);border-radius:var(--radius-sm);padding:8px 10px;font-size:11px;color:var(--text3)}
+/* ── Main ── */
+#main-content{flex:1;overflow-y:auto;overflow-x:hidden}
+.view{display:none;padding:24px 28px 100px;min-height:100%}
+.view.active{display:block}
+/* ── Page header ── */
+.page-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.page-title{font-size:19px;font-weight:700;letter-spacing:-0.03em}
+.page-sub{font-size:12px;color:var(--text3);margin-top:3px}
+.header-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+/* ── Buttons ── */
+.btn{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;font-family:var(--sans);white-space:nowrap}
+.btn:hover{filter:brightness(1.15)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:var(--accent-bg);border-color:var(--accent-border);color:#a5b4fc}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--text3)}
+.btn-danger{background:var(--red-bg);border-color:var(--red-border);color:#fca5a5}
+.btn-success{background:var(--green-bg);border-color:var(--green-border);color:#86efac}
+[data-theme="light"] .btn-primary{color:var(--accent)}
+/* ── Tabs ── */
+.tabs-nav{display:flex;gap:2px;background:var(--surface);border-radius:9px;padding:3px;border:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap}
+.tab-btn{padding:6px 14px;border-radius:7px;font-size:12px;font-weight:500;background:transparent;border:1px solid transparent;color:var(--text3);cursor:pointer;transition:all .15s;font-family:var(--sans)}
+.tab-btn.active{background:var(--accent-bg);border-color:var(--accent-border);color:#a5b4fc;font-weight:600}
+[data-theme="light"] .tab-btn.active{color:var(--accent)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+/* ── Cards ── */
+.cards-grid{display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:all .15s;position:relative}
+.card:hover{border-color:var(--border2)}
+.card.selected{background:var(--accent-bg);border-color:var(--accent-border)}
+.card.offline{opacity:.6}
+.card-header{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.card-check{margin-top:4px;width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.card-info{flex:1;min-width:0}
+.card-name-row{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.status-dot.online{background:var(--green);box-shadow:0 0 6px var(--green)}
+.status-dot.offline{background:var(--text4)}
+.status-dot.warning{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+.status-dot.unknown,.status-dot.rebooting{background:#374151}
+.card-name{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-meta{font-size:11px;color:var(--text3);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:4px;letter-spacing:.05em}
+.card-ip-block{text-align:right;flex-shrink:0}
+.card-ip{font-family:var(--mono);font-size:12px;color:#60a5fa}
+.card-lastseen{font-size:10px;color:var(--text4);margin-top:2px}
+.card-lastseen.warn{color:var(--yellow)}
+/* ── Stats bars ── */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:12px}
+.stat-label{font-size:10px;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em}
+.bar-row{display:flex;align-items:center;gap:8px}
+.bar-track{flex:1;height:4px;background:var(--surface3);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px;transition:width .6s}
+.bar-pct{font-size:11px;font-family:var(--mono);min-width:30px;text-align:right}
+.stat-kv{display:flex;justify-content:space-between;font-size:11px}
+.stat-kv span:first-child{color:var(--text3)}
+.stat-kv span:last-child{font-family:var(--mono)}
+/* ── Card actions ── */
+.card-actions{display:flex;gap:6px}
+.card-btn{flex:1;padding:6px 0;border-radius:6px;font-size:11px;font-weight:600;border:1px solid;cursor:pointer;transition:all .15s;font-family:var(--sans)}
+.card-btn:hover:not(:disabled){filter:brightness(1.2)}.card-btn:disabled{opacity:.3;cursor:not-allowed}
+.card-btn.luci{background:var(--accent-bg);border-color:var(--accent-border);color:#a5b4fc}
+.card-btn.ssh{background:var(--green-bg);border-color:var(--green-border);color:#86efac}
+.card-btn.more{flex:none;padding:6px 10px;background:var(--surface);border-color:var(--border);color:var(--text3)}
+/* ── Filters ── */
+.filters{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.search-wrap{position:relative;flex:1;min-width:220px;max-width:340px}
+.search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text4);pointer-events:none}
+.search-input{width:100%;padding:8px 12px 8px 32px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;font-family:var(--sans);transition:border-color .15s}
+.search-input:focus{border-color:var(--accent-border)}
+.filter-group{display:flex;gap:3px;background:var(--surface);border-radius:8px;padding:3px;border:1px solid var(--border)}
+.filter-btn{padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;background:transparent;border:1px solid transparent;color:var(--text3);cursor:pointer;transition:all .15s;font-family:var(--sans)}
+.filter-btn.active{background:var(--accent-bg);border-color:var(--accent-border);color:#a5b4fc}
+.tag-filter{padding:5px 10px;border-radius:6px;font-size:11px;font-family:var(--mono);cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text3);transition:all .15s}
+.select-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12px;color:var(--text3)}
+.select-row input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent);cursor:pointer}
+/* ── Empty state ── */
+.empty{text-align:center;padding:60px 0;color:var(--text4)}
+.empty-icon{font-size:32px;margin-bottom:8px}
+/* ── Stat cards for monitoring ── */
+.stat-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center}
+.stat-card-value{font-size:28px;font-weight:700;font-family:var(--mono);letter-spacing:-0.03em}
+.stat-card-label{font-size:11px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
+/* ── Table ── */
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th{padding:10px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--surface);cursor:pointer;user-select:none;white-space:nowrap}
+.data-table th:hover{color:var(--text)}
+.data-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.data-table tr:hover td{background:var(--surface2)}
+.data-table tbody tr:last-child td{border-bottom:none}
+/* ── Map ── */
+#map-container{height:500px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)}
+/* ── Form elements ── */
+.form-row{margin-bottom:14px}
+.form-row label{display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.form-input,.form-select,.form-textarea{width:100%;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;font-family:var(--sans);transition:border-color .15s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent-border)}
+.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;cursor:pointer}
+.form-textarea{resize:vertical;min-height:100px;font-family:var(--mono);font-size:12px}
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px}
+/* ── Sections ── */
+.section-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.section-card h3{font-size:14px;font-weight:600;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+/* ── Events list ── */
+.event-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.event-item:last-child{border-bottom:none}
+.event-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.event-dot.online{background:var(--green)}
+.event-dot.offline{background:var(--red)}
+.event-dot.reboot{background:var(--yellow)}
+.event-dot.snapshot,.event-dot.config,.event-dot.update{background:#60a5fa}
+.event-msg{flex:1;font-size:13px}
+.event-time{font-size:11px;color:var(--text4);font-family:var(--mono);flex-shrink:0}
+/* ── Snapshot item ── */
+.snap-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface);border-radius:8px;margin-bottom:8px;border:1px solid var(--border)}
+.snap-name{flex:1;font-size:13px;font-weight:500}
+.snap-meta{font-size:11px;color:var(--text3);font-family:var(--mono)}
+/* ── Toggle ── */
+.toggle-wrap{display:flex;align-items:center;gap:12px}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--surface3);border-radius:12px;cursor:pointer;transition:.2s}
+.toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s}
+.toggle input:checked+.toggle-slider{background:var(--accent)}
+.toggle input:checked+.toggle-slider:before{transform:translateX(20px)}
+/* ── Bulk bar ── */
+#bulk-bar{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:rgba(17,17,19,.97);backdrop-filter:blur(16px);border:1px solid var(--accent-border);border-radius:12px;padding:12px 18px;display:none;align-items:center;gap:10px;box-shadow:0 8px 40px rgba(0,0,0,.6);z-index:500;min-width:460px;flex-wrap:wrap}
+#bulk-bar.visible{display:flex}
+.bulk-count{font-family:var(--mono);font-size:12px;color:#a5b4fc}
+.bulk-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
+.bulk-btn{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;background:var(--surface2);border:1px solid var(--border);cursor:pointer;transition:all .15s;font-family:var(--sans);white-space:nowrap}
+.bulk-btn:hover{filter:brightness(1.2)}
+.bulk-spacer{flex:1}
+.bulk-close{background:none;border:none;color:var(--text4);cursor:pointer;font-size:18px;line-height:1}
+/* ── Modals ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:900;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-bg.visible{display:flex}
+.modal{background:var(--bg3);border:1px solid var(--border);border-radius:14px;width:100%;max-width:500px;padding:24px;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
+.modal-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:20px;line-height:1}
+.modal-footer{display:flex;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+.modal-footer .btn{flex:1}
+/* ── SSH terminal ── */
+#ssh-modal{position:fixed;inset:0;background:rgba(0,0,0,.9);backdrop-filter:blur(8px);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+#ssh-modal.visible{display:flex}
+.term-window{width:100%;max-width:860px;background:#0d0d0f;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;box-shadow:0 40px 80px rgba(0,0,0,.8);display:flex;flex-direction:column;max-height:85vh}
+.term-titlebar{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.07);background:#111113;flex-shrink:0}
+.term-dots{display:flex;gap:6px}
+.term-dot{width:12px;height:12px;border-radius:50%;cursor:pointer}
+.term-dot.r{background:#ef4444}.term-dot.y{background:#f59e0b}.term-dot.g{background:#22c55e}
+.term-title{flex:1;text-align:center;font-size:12px;color:#6b7280;font-family:var(--mono)}
+.term-body{flex:1;padding:10px;overflow:hidden;min-height:380px}
+#terminal{height:100%}
+.term-connecting{display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:12px;color:#6b7280;font-family:var(--mono);font-size:13px}
+.term-connecting .conn-dots::after{content:'';animation:dots 1.2s steps(4,end) infinite}
+@keyframes dots{0%,100%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'}}
+/* ── Login overlay ── */
+#login-overlay{position:fixed;inset:0;background:var(--bg);z-index:2000;display:none;align-items:center;justify-content:center}
+#login-overlay.visible{display:flex}
+.login-box{background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:36px;width:100%;max-width:380px;text-align:center}
+.login-logo{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#6366f1,#22c55e);display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 16px}
+.login-title{font-size:20px;font-weight:700;letter-spacing:-0.03em;margin-bottom:6px}
+.login-sub{font-size:13px;color:var(--text3);margin-bottom:24px}
+/* ── Spinner ── */
+.spinner{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .2s ease}
+/* ── Toast ── */
+#toast{position:fixed;top:20px;right:20px;background:rgba(17,17,19,.97);backdrop-filter:blur(12px);border:1px solid var(--accent-border);border-radius:10px;padding:12px 18px;font-size:12px;color:#a5b4fc;box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:3000;max-width:320px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;transform:translateX(8px)}
+#toast.show{opacity:1;transform:translateX(0)}
+/* ── Code block ── */
+.code-block{background:#0d0d0f;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:14px 16px;font-family:var(--mono);font-size:12px;color:#d1d5db;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto}
+/* ── Diff ── */
+.diff-add{color:#86efac}.diff-del{color:#fca5a5}.diff-ctx{color:#6b7280}
+/* ── Progress ── */
+.progress-bar{height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .4s}
+</style>
+</head>
+<body>
+
+<!-- Login overlay -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">⬡</div>
+    <div class="login-title">OpenWRT NetCtrl</div>
+    <div class="login-sub">Введите пароль для доступа к панели</div>
+    <div class="form-row"><input class="form-input" id="login-pass" type="password" placeholder="Пароль" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn btn-primary" style="width:100%;padding:10px" onclick="doLogin()">Войти</button>
+    <div id="login-err" style="color:var(--red);font-size:12px;margin-top:10px"></div>
+  </div>
+</div>
+
+<div id="app">
+<!-- Sidebar -->
+<aside id="sidebar">
+  <div class="logo">
+    <div class="logo-icon">⬡</div>
+    <div><div class="logo-name" id="app-name">OpenWRT NetCtrl</div><div class="logo-sub">Fleet Manager</div></div>
+  </div>
+  <nav>
+    <div class="nav-item active" data-view="routers" onclick="switchView('routers',this)"><span class="nav-icon">▦</span> <span data-i18n="nav_routers">Роутеры</span></div>
+    <div class="nav-item" data-view="monitoring" onclick="switchView('monitoring',this)"><span class="nav-icon">◈</span> <span data-i18n="nav_monitoring">Мониторинг</span></div>
+    <div class="nav-item" data-view="configs" onclick="switchView('configs',this)"><span class="nav-icon">⊞</span> <span data-i18n="nav_configs">Конфиги</span></div>
+    <div class="nav-item" data-view="updates" onclick="switchView('updates',this)"><span class="nav-icon">↻</span> <span data-i18n="nav_updates">Обновления</span></div>
+    <div class="nav-item" data-view="settings" onclick="switchView('settings',this)"><span class="nav-icon">⚙</span> <span data-i18n="nav_settings">Настройки</span></div>
+  </nav>
+  <div class="sidebar-stats">
+    <div class="stats-title" data-i18n="network_status">Статус сети</div>
+    <div class="stat-row"><span style="color:var(--text3)" data-i18n="online">Online</span><span class="stat-count" style="color:var(--green)" id="s-online">1</span></div>
+    <div class="stat-row"><span style="color:var(--text3)">Warning</span><span class="stat-count" style="color:var(--yellow)" id="s-warning">0</span></div>
+    <div class="stat-row"><span style="color:var(--text3)" data-i18n="offline">Offline</span><span class="stat-count" style="color:var(--red)" id="s-offline">0</span></div>
+  </div>
+  <div class="sidebar-user"><div class="user-chip"><span style="color:var(--green)">●</span> <span data-i18n="connected">Подключён</span> · admin</div></div>
+</aside>
+
+<!-- ═══════════════════════════════════════════════════════════ ROUTERS ═══ -->
+<main id="main-content">
+<div class="view active" id="view-routers">
+  <div class="page-header">
+    <div><div class="page-title" data-i18n="nav_routers">Роутеры</div><div class="page-sub" id="routers-sub">1 устройств · 1 онлайн</div></div>
+    <div class="header-actions">
+      <button class="btn btn-primary" onclick="openAddModal()">+ <span data-i18n="add_router">Добавить роутер</span></button>
+      <button class="btn btn-ghost" onclick="loadRouters()">⟳ <span data-i18n="refresh">Обновить</span></button>
+    </div>
+  </div>
+  <div class="filters">
+    <div class="search-wrap"><span class="search-icon">⊘</span><input class="search-input" id="r-search" type="text" placeholder="Поиск по имени, IP, локации..." oninput="renderCards()"></div>
+    <div class="filter-group">
+      <button class="filter-btn active" data-status="all" onclick="setStatusFilter(this)">Все</button>
+      <button class="filter-btn" data-status="online" onclick="setStatusFilter(this)">Online</button>
+      <button class="filter-btn" data-status="warning" onclick="setStatusFilter(this)">Warning</button>
+      <button class="filter-btn" data-status="offline" onclick="setStatusFilter(this)">Offline</button>
+    </div>
+    <div id="tag-filters" style="display:flex;gap:4px;flex-wrap:wrap"><button class="tag-filter" onclick="setTagFilter('all')" style="background:var(--accent-bg);border-color:var(--accent-border);color:#a5b4fc"># все</button></div>
+  </div>
+  <div class="select-row" id="select-row" style="">
+    <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
+    <span id="select-label">Выбрать все (1)</span>
+  </div>
+  <div class="cards-grid" id="grid" style="--cols: 3;"><div class="card  " id="card-1" onclick="toggleCard(1)">
+    <div class="card-header">
+      <input class="card-check" type="checkbox" id="cb-1" onclick="event.stopPropagation()" onchange="toggleSelect(1)">
+      <div class="card-info">
+        <div class="card-name-row"><span class="status-dot online"></span><span class="card-name">HOME My</span></div>
+        <div class="card-meta">— · Xiaomi Redmi Router AX6000 (OpenWrt U-Boot layout)</div>
+        <div class="tags"></div>
+      </div>
+      <div class="card-ip-block">
+        <div class="card-ip">10.115.237.27</div>
+        <div class="card-lastseen ">3ч назад</div>
+      </div>
+    </div>
+    <div class="stats-grid">
+    <div><div class="stat-label">CPU</div><div class="bar-row"><div class="bar-track"><div class="bar-fill" style="width:0%;background:var(--green)"></div></div><span class="bar-pct" style="color:var(--green)">0%</span></div></div>
+    <div><div class="stat-label">RAM</div><div class="bar-row"><div class="bar-track"><div class="bar-fill" style="width:26%;background:var(--green)"></div></div><span class="bar-pct" style="color:var(--green)">26%</span></div></div>
+    <div class="stat-kv"><span>Клиенты</span><span>4</span></div>
+    <div class="stat-kv"><span>Аптайм</span><span>19ч</span></div>
+  </div>
+    <div class="card-actions" onclick="event.stopPropagation()">
+      <button class="card-btn luci" onclick="openLuCI(1)">⬡ LuCI</button>
+      <button class="card-btn ssh" onclick="openSSH(1)">❯_ SSH</button>
+      <button class="card-btn more" onclick="showCardMenu(event,1)">···</button>
+    </div>
+  </div></div>
+  <div class="empty" id="r-empty" style="display:none"><div class="empty-icon">⊘</div><div>Роутеры не найдены</div></div>
+  <div class="empty" id="r-loading" style="display: none;"><div class="spinner" style="margin:0 auto 12px"></div><div>Загрузка...</div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ MONITORING ═══ -->
+<div class="view" id="view-monitoring">
+  <div class="page-header">
+    <div><div class="page-title">Мониторинг</div><div class="page-sub">Состояние сети в реальном времени</div></div>
+    <div class="header-actions"><button class="btn btn-ghost" onclick="loadMonitoring()">⟳ Обновить</button></div>
+  </div>
+  <div class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('monitoring','overview',this)">📊 Обзор</button>
+    <button class="tab-btn" onclick="switchTab('monitoring','charts',this)">📈 Графики</button>
+    <button class="tab-btn" onclick="switchTab('monitoring','map',this)">🗺 Карта</button>
+    <button class="tab-btn" onclick="switchTab('monitoring','table',this)">📋 Таблица</button>
+    <button class="tab-btn" onclick="switchTab('monitoring','events',this)">🔔 События</button>
+  </div>
+  <!-- Overview -->
+  <div class="tab-pane active" id="mon-overview">
+    <div class="stat-cards" id="mon-stat-cards">
+      <div class="stat-card"><div class="stat-card-value" id="m-total" style="color:var(--text)">—</div><div class="stat-card-label">Всего роутеров</div></div>
+      <div class="stat-card"><div class="stat-card-value" id="m-online" style="color:var(--green)">—</div><div class="stat-card-label">Online</div></div>
+      <div class="stat-card"><div class="stat-card-value" id="m-offline" style="color:var(--red)">—</div><div class="stat-card-label">Offline</div></div>
+      <div class="stat-card"><div class="stat-card-value" id="m-clients" style="color:#60a5fa">—</div><div class="stat-card-label">Клиентов</div></div>
+      <div class="stat-card"><div class="stat-card-value" id="m-cpu" style="color:var(--yellow)">—</div><div class="stat-card-label">CPU ср.</div></div>
+      <div class="stat-card"><div class="stat-card-value" id="m-ram" style="color:#a78bfa">—</div><div class="stat-card-label">RAM ср.</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="section-card"><h3>🔴 Проблемные роутеры</h3><div id="mon-problems"><div style="color:var(--text4);font-size:13px">Загрузка...</div></div></div>
+      <div class="section-card"><h3>📅 Последние события</h3><div id="mon-recent-events"><div style="color:var(--text4);font-size:13px">Загрузка...</div></div></div>
+    </div>
+  </div>
+  <!-- Charts -->
+  <div class="tab-pane" id="mon-charts">
+    <div class="form-row" style="max-width:400px;display:flex;gap:12px;align-items:flex-end">
+      <div style="flex:1"><label>Роутер</label><select class="form-select" id="chart-router-sel" onchange="loadChart()"></select></div>
+      <div><label>Период</label><select class="form-select" id="chart-hours" onchange="loadChart()"><option value="1">1 час</option><option value="6">6 часов</option><option value="24" selected="selected">24 часа</option><option value="168">7 дней</option></select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+      <div class="section-card"><h3>CPU %</h3><div style="position:relative;height:160px"><canvas id="chart-cpu"></canvas></div></div>
+      <div class="section-card"><h3>RAM %</h3><div style="position:relative;height:160px"><canvas id="chart-ram"></canvas></div></div>
+      <div class="section-card"><h3>Клиенты</h3><div style="position:relative;height:160px"><canvas id="chart-clients"></canvas></div></div>
+    </div>
+  </div>
+  <!-- Map -->
+  <div class="tab-pane" id="mon-map">
+    <div style="display:flex;gap:12px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:13px;color:var(--text3)">● Онлайн &nbsp; ● Оффлайн &nbsp; ● Предупреждение</span>
+      <button class="btn btn-ghost" onclick="initMap()">⟳ Обновить карту</button>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Роутер</div>
+        <select class="form-select" id="map-router-sel"></select>
+      </div>
+      <div style="flex:2;min-width:220px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Адрес (необязательно, для подсказки)</div>
+        <input class="form-input" id="map-address" type="text" placeholder="Таганрог, ул. Петровская 1">
+      </div>
+      <div style="display:flex;gap:8px">
+        <div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Широта</div>
+          <input class="form-input" id="map-lat" type="number" step="0.0001" placeholder="47.2083" style="width:130px">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Долгота</div>
+          <input class="form-input" id="map-lng" type="number" step="0.0001" placeholder="38.8869" style="width:130px">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveMapCoords()">📍 Сохранить</button>
+    </div>
+    <div id="map-container"></div>
+  </div>
+  <!-- Table -->
+  <div class="tab-pane" id="mon-table">
+    <div class="search-wrap" style="margin-bottom:14px;max-width:320px"><span class="search-icon">⊘</span><input class="search-input" id="mon-search" type="text" placeholder="Поиск..." oninput="renderMonTable()"></div>
+    <div style="overflow-x:auto">
+    <table class="data-table" id="mon-table-el">
+      <thead><tr>
+        <th onclick="sortTable('name')">Имя ↕</th>
+        <th onclick="sortTable('ip')">IP ↕</th>
+        <th onclick="sortTable('status')">Статус ↕</th>
+        <th onclick="sortTable('cpu')">CPU ↕</th>
+        <th onclick="sortTable('ram')">RAM ↕</th>
+        <th onclick="sortTable('clients')">Клиенты ↕</th>
+        <th onclick="sortTable('uptime_sec')">Аптайм ↕</th>
+        <th onclick="sortTable('firmware')">Прошивка ↕</th>
+        <th>Действия</th>
+      </tr></thead>
+      <tbody id="mon-table-body"></tbody>
+    </table>
+    </div>
+  </div>
+  <!-- Events -->
+  <div class="tab-pane" id="mon-events">
+    <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center">
+      <select class="form-select" style="max-width:160px" id="event-type-filter" onchange="loadEvents()"><option value="" selected="selected">Все типы</option><option value="online">Online</option><option value="offline">Offline</option><option value="reboot">Reboot</option><option value="snapshot">Снапшот</option><option value="config">Конфиг</option><option value="update">Обновление</option></select>
+      <button class="btn btn-ghost" onclick="loadEvents()">⟳ Обновить</button>
+    </div>
+    <div id="events-list" class="section-card"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ CONFIGS ═══ -->
+<div class="view" id="view-configs">
+  <div class="page-header">
+    <div><div class="page-title">Конфиги</div><div class="page-sub">Управление конфигурациями роутеров</div></div>
+  </div>
+  <div class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('configs','snapshots',this)">💾 Снапшоты</button>
+    <button class="tab-btn" onclick="switchTab('configs','push',this)">📤 Push конфига</button>
+    <button class="tab-btn" onclick="switchTab('configs','templates',this)">📋 Шаблоны</button>
+    <button class="tab-btn" onclick="switchTab('configs','backup',this)">🗃 Бэкап</button>
+  </div>
+  <!-- Snapshots -->
+  <div class="tab-pane active" id="cfg-snapshots">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="section-card">
+        <h3>Создать снапшот UCI</h3>
+        <div class="form-row"><label>Роутер</label><select class="form-select" id="snap-router-sel"></select></div>
+        <div class="form-row"><label>Метка (опционально)</label><input class="form-input" id="snap-label" type="text" placeholder="v1.0 рабочий"></div>
+        <button class="btn btn-primary" onclick="createSnapshot()">💾 Создать снапшот</button>
+      </div>
+      <div class="section-card">
+        <h3>Список снапшотов</h3>
+        <div id="snaps-list"><div style="color:var(--text4);font-size:13px">Загрузка...</div></div>
+      </div>
+    </div>
+  </div>
+  <!-- Push config -->
+  <div class="tab-pane" id="cfg-push">
+    <div class="section-card">
+      <h3>Push UCI команд на роутеры</h3>
+      <div class="form-row"><label>Роутеры (выберите несколько)</label><select class="form-select" id="push-routers-sel" multiple="multiple" style="height:120px"></select></div>
+      <div class="form-row"><label>UCI команды (каждая с новой строки)</label><textarea class="form-textarea" id="push-commands" placeholder="uci set system.@system[0].hostname='myrouter'
+uci commit system"></textarea></div>
+      <button class="btn btn-primary" onclick="pushConfig()">📤 Применить на выбранных</button>
+      <div id="push-result" style="margin-top:14px"></div>
+    </div>
+  </div>
+  <!-- Templates -->
+  <div class="tab-pane" id="cfg-templates">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px" id="templates-grid"><div class="section-card" style="cursor:pointer" onclick="useTemplate('uci set dropbear.@dropbear[0].Interface=\'lan\'
+uci commit dropbear
+/etc/init.d/dropbear restart')">
+    <div style="font-size:24px;margin-bottom:8px">🔐</div>
+    <div style="font-weight:600;margin-bottom:4px">Базовая безопасность</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Отключить telnet, ограничить SSH только LAN</div>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px">Использовать →</button>
+  </div><div class="section-card" style="cursor:pointer" onclick="useTemplate('uci set network.wan.dns=\'1.1.1.1 8.8.8.8\'
+uci commit network
+/etc/init.d/network restart')">
+    <div style="font-size:24px;margin-bottom:8px">🌐</div>
+    <div style="font-weight:600;margin-bottom:4px">Настройка DNS</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Установить Cloudflare DNS 1.1.1.1</div>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px">Использовать →</button>
+  </div><div class="section-card" style="cursor:pointer" onclick="useTemplate('opkg update')">
+    <div style="font-size:24px;margin-bottom:8px">📦</div>
+    <div style="font-weight:600;margin-bottom:4px">Обновить opkg</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Обновить списки пакетов</div>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px">Использовать →</button>
+  </div><div class="section-card" style="cursor:pointer" onclick="useTemplate('/etc/init.d/amneziawg restart')">
+    <div style="font-size:24px;margin-bottom:8px">🔒</div>
+    <div style="font-weight:600;margin-bottom:4px">AmneziaWG restart</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Перезапустить AmneziaWireGuard</div>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px">Использовать →</button>
+  </div><div class="section-card" style="cursor:pointer" onclick="useTemplate('/etc/init.d/nlbwmon restart')">
+    <div style="font-size:24px;margin-bottom:8px">📊</div>
+    <div style="font-weight:600;margin-bottom:4px">Сбросить счётчики</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Перезапустить nlbwmon</div>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px">Использовать →</button>
+  </div><div class="section-card" style="cursor:pointer" onclick="useTemplate('/etc/init.d/sysntpd restart')">
+    <div style="font-size:24px;margin-bottom:8px">🕐</div>
+    <div style="font-weight:600;margin-bottom:4px">Синхронизация времени</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Принудительно синхронизировать NTP</div>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px">Использовать →</button>
+  </div></div>
+  </div>
+  <!-- Backup -->
+  <div class="tab-pane" id="cfg-backup">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="section-card">
+        <h3>Бэкап конфига роутера (sysupgrade)</h3>
+        <div class="form-row"><label>Роутер</label><select class="form-select" id="backup-router-sel"></select></div>
+        <p style="font-size:13px;color:var(--text3);margin-bottom:14px">Создаст архив /tmp/backup.tar.gz с конфигурацией роутера и скачает его.</p>
+        <button class="btn btn-primary" onclick="backupRouter()">⬇ Скачать бэкап конфига</button>
+        <div id="backup-result" style="margin-top:12px"></div>
+      </div>
+      <div class="section-card">
+        <h3>Рекомендации по пакетам мониторинга</h3>
+        <p style="font-size:13px;color:var(--text3);margin-bottom:12px">Для мониторинга трафика рекомендуем <b style="color:var(--text)">nlbwmon</b> — официальный пакет OpenWrt, потребляет минимум ресурсов (~200KB RAM).</p>
+        <div class="code-block">opkg update
+opkg install nlbwmon
+/etc/init.d/nlbwmon enable
+/etc/init.d/nlbwmon start</div>
+        <div class="form-row" style="margin-top:14px"><label>Установить на роутер</label><select class="form-select" id="nlbwmon-router-sel"></select></div>
+        <button class="btn btn-success" style="margin-top:8px" onclick="installNlbwmon()">▶ Установить nlbwmon</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ UPDATES ═══ -->
+<div class="view" id="view-updates">
+  <div class="page-header">
+    <div><div class="page-title">Обновления</div><div class="page-sub">Прошивки и пакеты</div></div>
+  </div>
+  <div class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('updates','firmware',this)">🔧 Прошивки</button>
+    <button class="tab-btn" onclick="switchTab('updates','packages',this)">📦 Пакеты</button>
+    <button class="tab-btn" onclick="switchTab('updates','history',this)">📜 История</button>
+    <button class="tab-btn" onclick="switchTab('updates','scheduler',this)">🕐 Планировщик</button>
+  </div>
+  <!-- Firmware -->
+  <div class="tab-pane active" id="upd-firmware">
+    <div class="section-card">
+      <h3>Версии прошивок</h3>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:14px">⚠️ Обновление с сохранением конфига: используется <code style="background:var(--surface3);padding:2px 6px;border-radius:4px">sysupgrade -c</code>. После обновления агент автоматически переподключится через автозапуск.</p>
+      <div style="overflow-x:auto">
+      <table class="data-table" id="fw-table">
+        <thead><tr><th>Роутер</th><th>IP</th><th>Версия</th><th>Статус</th><th>Действия</th></tr></thead>
+        <tbody id="fw-tbody"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+  <!-- Packages -->
+  <div class="tab-pane" id="upd-packages">
+    <div class="section-card">
+      <h3>Обновление пакетов opkg</h3>
+      <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        <select class="form-select" style="max-width:220px" id="pkg-router-sel"></select>
+        <button class="btn btn-primary" onclick="loadPackages()">🔍 Проверить обновления</button>
+        <button class="btn btn-success" onclick="opkgUpdate()">⟳ opkg update</button>
+      </div>
+      <div id="pkg-list"><div style="color:var(--text4);font-size:13px">Выберите роутер и нажмите «Проверить»</div></div>
+    </div>
+  </div>
+  <!-- History -->
+  <div class="tab-pane" id="upd-history">
+    <div class="section-card">
+      <h3>История обновлений</h3>
+      <div id="upd-hist-list"><div style="color:var(--text4);font-size:13px">Загрузка...</div></div>
+    </div>
+  </div>
+  <!-- Scheduler -->
+  <div class="tab-pane" id="upd-scheduler">
+    <div class="section-card">
+      <h3>Планировщик обновлений</h3>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:16px">Запланируйте автоматическое обновление пакетов на удобное время.</p>
+      <div class="form-row-2">
+        <div class="form-row" style="margin-bottom:0"><label>Роутер / группа</label><select class="form-select" id="sched-router-sel"></select></div>
+        <div class="form-row" style="margin-bottom:0"><label>Время (по UTC)</label><input class="form-input" id="sched-time" type="time" value="03:00"></div>
+      </div>
+      <div class="form-row"><label>Действие</label>
+        <select class="form-select" id="sched-action">
+          <option value="opkg_update" selected="selected">opkg update (обновить списки)</option>
+          <option value="opkg_upgrade">opkg upgrade (обновить пакеты)</option>
+          <option value="reboot">Перезагрузка</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="toast('Планировщик будет добавлен в следующей версии')">+ Добавить задачу</button>
+      <div style="margin-top:16px;padding:12px;background:var(--yellow-bg);border:1px solid var(--yellow-border);border-radius:8px;font-size:12px;color:var(--yellow)">
+        ⚠️ Планировщик обновлений — в разработке. Будет реализован через cron на сервере.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ SETTINGS ═══ -->
+<div class="view" id="view-settings">
+  <div class="page-header">
+    <div><div class="page-title">Настройки</div><div class="page-sub">Конфигурация панели OpenWRT NetCtrl</div></div>
+    <div class="header-actions"><button class="btn btn-primary" onclick="saveSettings()">💾 Сохранить</button></div>
+  </div>
+  <div class="tabs-nav" style="flex-wrap:wrap">
+    <button class="tab-btn active" onclick="switchTab('settings','appearance',this)">🎨 Внешний вид</button>
+    <button class="tab-btn" onclick="switchTab('settings','auth',this)">🔐 Авторизация</button>
+    <button class="tab-btn" onclick="switchTab('settings','groups',this)">📍 Группы</button>
+    <button class="tab-btn" onclick="switchTab('settings','wireguard',this)">🔒 WireGuard</button>
+    <button class="tab-btn" onclick="switchTab('settings','notifications',this)">🔔 Уведомления</button>
+    <button class="tab-btn" onclick="switchTab('settings','agent',this)">🤖 Агент</button>
+    <button class="tab-btn" onclick="switchTab('settings','backup-db',this)">🗃 Бэкап БД</button>
+    <button class="tab-btn" onclick="switchTab('settings','system',this)">ℹ️ Система</button>
+  </div>
+  <!-- Appearance -->
+  <div class="tab-pane active" id="set-appearance">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="section-card">
+        <h3>Внешний вид</h3>
+        <div class="form-row"><label>Название панели</label><input class="form-input" id="s-app-name" type="text" value="OpenWRT NetCtrl"></div>
+        <div class="form-row"><label>Тема</label>
+          <div style="display:flex;gap:10px;margin-top:4px">
+            <button class="btn" id="theme-dark-btn" onclick="setTheme('dark')" style="flex: 1 1 0%; background: var(--accent-bg); border-color: var(--accent-border); color: rgb(165, 180, 252);">🌙 Тёмная</button>
+            <button class="btn" id="theme-light-btn" onclick="setTheme('light')" style="flex: 1 1 0%; background: transparent; border-color: var(--border); color: var(--text3);">☀️ Светлая</button>
+          </div>
+        </div>
+
+        <div class="form-row"><label>Колонок в сетке роутеров</label>
+          <select class="form-select" id="s-grid-columns" onchange="setGridCols(this.value)">
+            <option value="2">2 колонки</option>
+            <option value="3" selected="selected">3 колонки</option>
+            <option value="4">4 колонки</option>
+            <option value="5">5 колонок</option>
+          </select>
+        </div>
+      </div>
+      <div class="section-card">
+        <h3>Предпросмотр темы</h3>
+        <div style="padding:16px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span class="status-dot online"></span><span style="font-family:var(--mono);font-size:13px;font-weight:600">router-01</span>
+          </div>
+          <div class="bar-row" style="margin-bottom:8px"><span style="font-size:11px;color:var(--text3);width:40px">CPU</span><div class="bar-track" style="flex:1"><div class="bar-fill" style="width:45%;background:var(--green)"></div></div><span class="bar-pct" style="color:var(--green)">45%</span></div>
+          <div class="bar-row"><span style="font-size:11px;color:var(--text3);width:40px">RAM</span><div class="bar-track" style="flex:1"><div class="bar-fill" style="width:68%;background:var(--yellow)"></div></div><span class="bar-pct" style="color:var(--yellow)">68%</span></div>
+          <div style="display:flex;gap:6px;margin-top:12px">
+            <button class="card-btn luci" style="flex:1;padding:6px">⬡ LuCI</button>
+            <button class="card-btn ssh" style="flex:1;padding:6px">❯_ SSH</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Auth -->
+  <div class="tab-pane" id="set-auth">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="section-card">
+        <h3>Защита панели</h3>
+        <div class="form-row">
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="s-auth-enabled" onchange="toggleAuth()"><span class="toggle-slider"></span></label>
+            <span>Требовать пароль при входе</span>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:16px">Если включено, при открытии панели будет показан экран входа.</p>
+      </div>
+      <div class="section-card">
+        <h3>Смена пароля</h3>
+        <div class="form-row"><label>Текущий пароль</label><input class="form-input" id="pass-current" type="password"></div>
+        <div class="form-row"><label>Новый пароль</label><input class="form-input" id="pass-new" type="password"></div>
+        <div class="form-row"><label>Повтор нового пароля</label><input class="form-input" id="pass-confirm" type="password"></div>
+        <button class="btn btn-primary" onclick="changePassword()">🔐 Сменить пароль</button>
+      </div>
+    </div>
+  </div>
+  <!-- Groups -->
+  <div class="tab-pane" id="set-groups">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="section-card">
+        <h3>Добавить группу / локацию</h3>
+        <div class="form-row"><label>Название</label><input class="form-input" id="g-name" type="text" placeholder="Таганрог / Центр"></div>
+        <div class="form-row"><label>Город</label><input class="form-input" id="g-city" type="text" placeholder="Таганрог"></div>
+        <div class="form-row-2">
+          <div class="form-row" style="margin-bottom:0"><label>Широта</label><input class="form-input" id="g-lat" type="number" step="0.0001" placeholder="47.2083"></div>
+          <div class="form-row" style="margin-bottom:0"><label>Долгота</label><input class="form-input" id="g-lng" type="number" step="0.0001" placeholder="38.8869"></div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:8px" onclick="addGroup()">+ Добавить группу</button>
+      </div>
+      <div class="section-card">
+        <h3>Существующие группы</h3>
+        <div id="groups-list"><div style="color:var(--text4);font-size:13px">Загрузка...</div></div>
+      </div>
+    </div>
+  </div>
+  <!-- WireGuard -->
+  <div class="tab-pane" id="set-wireguard">
+    <div class="section-card">
+      <h3>WireGuard — управление туннелями</h3>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:16px">Для 1000+ роутеров используйте подсеть <b style="color:var(--text)">10.10.0.0/16</b> — 65 534 адреса. Каждый роутер получает фиксированный IP при подключении.</p>
+      <div style="padding:14px;background:var(--yellow-bg);border:1px solid var(--yellow-border);border-radius:8px;font-size:13px;color:var(--yellow);margin-bottom:16px">
+        ⚠️ Управление WireGuard пирами будет реализовано в следующей 
+версии. Настройте WireGuard вручную на сервере, затем укажите WG-IP 
+роутеров в их карточках.
+      </div>
+      <div class="code-block"># Установить WireGuard на роутер:
+opkg update
+opkg install wireguard-tools kmod-wireguard
+
+# Адресация для флота:
+# Сервер (панель): 10.10.0.1/16
+# Роутер 1:  10.10.0.2/32
+# Роутер 2:  10.10.0.3/32
+# ...
+# Роутер 1000: 10.10.3.234/32</div>
+    </div>
+  </div>
+  <!-- Notifications -->
+  <div class="tab-pane" id="set-notifications">
+    <div class="section-card">
+      <h3>Telegram уведомления</h3>
+      <div class="form-row"><label>Bot Token</label><input class="form-input" id="s-tg-token" type="text" placeholder="1234567890:AAF..."></div>
+      <div class="form-row"><label>Chat ID</label><input class="form-input" id="s-tg-chatid" type="text" placeholder="-1001234567890"></div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-primary" onclick="saveTelegram()">💾 Сохранить</button>
+        <button class="btn btn-ghost" onclick="testTelegram()">📤 Тест уведомления</button>
+      </div>
+      <div style="margin-top:16px;font-size:12px;color:var(--text3)">
+        <p>Уведомления отправляются при:</p>
+        <p style="margin-top:6px">🔴 Роутер ушёл offline &nbsp; ✅ Роутер снова online</p>
+      </div>
+    </div>
+  </div>
+  <!-- Agent -->
+  <div class="tab-pane" id="set-agent">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="section-card">
+        <h3>Параметры агента</h3>
+        <div class="form-row"><label>Интервал heartbeat (секунды)</label><input class="form-input" id="s-heartbeat" type="number" value="30" min="10" max="300"></div>
+        <div class="form-row"><label>Таймаут offline (секунды)</label><input class="form-input" id="s-offline-timeout" type="number" value="120" min="60"></div>
+        <button class="btn btn-primary" onclick="saveAgentSettings()">💾 Сохранить</button>
+      </div>
+      <div class="section-card">
+        <h3>Установка агента на роутер</h3>
+        <p style="font-size:13px;color:var(--text3);margin-bottom:12px">Выполните на роутере через SSH:</p>
+        <div class="code-block" id="agent-install-cmd">wget http://СЕРВЕР:3000/agent/install.sh -O - | sh</div>
+        <p style="font-size:12px;color:var(--text3);margin-top:10px">Или с явным адресом:</p>
+        <div class="code-block" id="agent-install-cmd2">NETCTRL_SERVER=http://СЕРВЕР:3000 \
+wget http://СЕРВЕР:3000/agent/install.sh -O - | sh</div>
+      </div>
+    </div>
+  </div>
+  <!-- DB Backup -->
+  <div class="tab-pane" id="set-backup-db">
+    <div class="section-card">
+      <h3>Бэкап базы данных</h3>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:16px">База данных SQLite содержит все роутеры, метрики, снапшоты и настройки. Рекомендуем делать бэкап еженедельно.</p>
+      <div style="display:flex;gap:12px;margin-bottom:16px">
+        <button class="btn btn-primary" onclick="downloadDbBackup()">⬇ Скачать бэкап БД</button>
+      </div>
+      <div class="form-row"><label>Автоматический бэкап</label>
+        <select class="form-select" id="s-backup-interval" style="max-width:200px">
+          <option value="daily">Ежедневно</option>
+          <option value="weekly" selected>Еженедельно</option>
+          <option value="never">Отключён</option>
+        </select>
+      </div>
+      <button class="btn btn-ghost" onclick="saveSettings()">💾 Сохранить настройку</button>
+      <div style="margin-top:16px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text)">🗃 Автобэкап через cron на хосте</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Добавьте в crontab на хост-машине (запускать еженедельно по воскресеньям в 03:00):</div>
+        <div class="code-block" style="font-size:11px">0 3 * * 0  docker exec netctrl sh -c "cp /app/data/netctrl.db /app/data/netctrl_$(date +\%Y\%m\%d).db" && docker cp netctrl:/app/data/netctrl_$(date +\%Y\%m\%d).db ~/backups/</div>
+        <div style="font-size:11px;color:var(--text4);margin-top:8px">⚠ При <code style="background:var(--surface3);padding:1px 5px;border-radius:3px">docker compose down -v</code> данные сохранятся только если volume примонтирован к ./data</div>
+      </div>
+    </div>
+  </div>
+  <!-- System -->
+  <div class="tab-pane" id="set-system">
+    <div class="section-card">
+      <h3>ℹ️ О системе</h3>
+      <div id="system-info"><div class="spinner" style="margin:20px auto"></div></div>
+    </div>
+  </div>
+</div>
+</main>
+</div>
+
+<!-- Bulk bar -->
+<div id="bulk-bar">
+  <span class="bulk-count" id="bulk-count">0 выбрано</span>
+  <div class="bulk-sep"></div>
+  <button class="bulk-btn" style="color:var(--cyan)" onclick="bulkPing()">Ping all</button>
+  <button class="bulk-btn" style="color:var(--yellow)" onclick="toast('Обновление FW — в разработке')">Обновить FW</button>
+  <button class="bulk-btn" style="color:#a5b4fc" onclick="bulkPushConfig()">Push конфиг</button>
+  <button class="bulk-btn" style="color:#fca5a5" onclick="bulkReboot()">Reboot all</button>
+  <div class="bulk-spacer"></div>
+  <button class="bulk-close" onclick="clearSelection()">✕</button>
+</div>
+
+<!-- Add Router Modal -->
+<div class="modal-bg" id="add-modal">
+  <div class="modal">
+    <div class="modal-title">Добавить роутер <button class="modal-close" onclick="closeAddModal()">✕</button></div>
+    <div class="form-row-2">
+      <div class="form-row" style="margin-bottom:0"><label>Имя *</label><input class="form-input" id="f-name" type="text" placeholder="edge-msk-01"></div>
+      <div class="form-row" style="margin-bottom:0"><label>IP адрес *</label><input class="form-input" id="f-ip" type="text" placeholder="10.10.1.1"></div>
+    </div>
+    <div class="form-row" style="margin-top:14px"><label>Локация</label><input class="form-input" id="f-location" type="text" placeholder="МСК / Офис Центр"></div>
+    <div class="form-row-2">
+      <div class="form-row" style="margin-bottom:0"><label>Модель</label><input class="form-input" id="f-model" type="text" placeholder="GL-MT6000"></div>
+      <div class="form-row" style="margin-bottom:0"><label>Группа</label><select class="form-select" id="f-group"></select></div>
+    </div>
+    <div class="form-row"><label>Теги (через запятую)</label><input class="form-input" id="f-tags" type="text" placeholder="core, spb"></div>
+    <div class="form-row-2">
+      <div class="form-row" style="margin-bottom:0"><label>Широта</label><input class="form-input" id="f-lat" type="number" step="0.0001" placeholder="47.2083"></div>
+      <div class="form-row" style="margin-bottom:0"><label>Долгота</label><input class="form-input" id="f-lng" type="number" step="0.0001" placeholder="38.8869"></div>
+    </div>
+    <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">SSH доступ</div>
+    <div class="form-row-3">
+      <div class="form-row" style="margin-bottom:0"><label>Пользователь</label><input class="form-input" id="f-ssh-user" value="root" type="text"></div>
+      <div class="form-row" style="margin-bottom:0"><label>Порт</label><input class="form-input" id="f-ssh-port" value="22" type="number"></div>
+      <div class="form-row" style="margin-bottom:0"><label>Пароль</label><input class="form-input" id="f-ssh-pass" type="password"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAddModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="submitAddRouter()">Добавить роутер</button>
+    </div>
+  </div>
+</div>
+
+<!-- SSH Terminal Modal -->
+<div id="ssh-modal">
+  <div class="term-window">
+    <div class="term-titlebar">
+      <div class="term-dots"><div class="term-dot r" onclick="closeSSH()"></div><div class="term-dot y"></div><div class="term-dot g"></div></div>
+      <div class="term-title" id="term-title">SSH Terminal</div>
+      <button style="background:none;border:none;color:#4b5563;cursor:pointer;font-size:16px" onclick="closeSSH()">✕</button>
+    </div>
+    <div class="term-body">
+      <div class="term-connecting" id="term-connecting"><div class="spinner"></div><span>Подключение<span class="conn-dots"></span></span></div>
+      <div id="terminal" style="display:none;height:100%"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Snapshot viewer modal -->
+<div class="modal-bg" id="snap-modal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-title"><span id="snap-modal-title">Снапшот</span><button class="modal-close" onclick="document.getElementById('snap-modal').classList.remove('visible')">✕</button></div>
+    <div class="code-block" id="snap-content" style="max-height:400px"></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="document.getElementById('snap-modal').classList.remove('visible')">Закрыть</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════ i18n
+// Русский интерфейс (единственный язык)
+function t(key) {
+  const ru = { nav_routers:'Роутеры',nav_monitoring:'Мониторинг',nav_configs:'Конфиги',nav_updates:'Обновления',nav_settings:'Настройки',network_status:'Статус сети',online:'Online',offline:'Offline',connected:'Подключён',add_router:'Добавить роутер',refresh:'Обновить' };
+  return ru[key] || key;
+}
+
+// ════════════════════════════════════════════════════════ State
+let routers = [], groups = [], selected = new Set();
+let statusFilter = 'all', tagFilter = 'all';
+let sortKey = 'name', sortAsc = true;
+let authToken = sessionStorage.getItem('authToken') || '';
+let charts = {};
+
+// ════════════════════════════════════════════════════════ Tag colors
+const TAG_COLORS = {
+  core:{bg:'rgba(99,102,241,.15)',text:'#a5b4fc',border:'rgba(99,102,241,.3)'},
+  edge:{bg:'rgba(20,184,166,.15)',text:'#5eead4',border:'rgba(20,184,166,.3)'},
+  ap:{bg:'rgba(245,158,11,.15)',text:'#fcd34d',border:'rgba(245,158,11,.3)'},
+  spb:{bg:'rgba(59,130,246,.1)',text:'#93c5fd',border:'rgba(59,130,246,.2)'},
+  msk:{bg:'rgba(239,68,68,.1)',text:'#fca5a5',border:'rgba(239,68,68,.2)'},
+  krd:{bg:'rgba(34,197,94,.1)',text:'#86efac',border:'rgba(34,197,94,.2)'},
+  nsk:{bg:'rgba(168,85,247,.1)',text:'#d8b4fe',border:'rgba(168,85,247,.2)'},
+  ekb:{bg:'rgba(251,146,60,.1)',text:'#fdba74',border:'rgba(251,146,60,.2)'},
+  tgn:{bg:'rgba(99,102,241,.12)',text:'#a5b4fc',border:'rgba(99,102,241,.25)'},
+};
+const DTAG = {bg:'rgba(255,255,255,.07)',text:'#9ca3af',border:'rgba(255,255,255,.1)'};
+
+// ════════════════════════════════════════════════════════ API
+const API = '';
+async function api(method, path, body, opts={}) {
+  const o = { method, headers: { 'Content-Type':'application/json', 'x-auth-token': authToken } };
+  if (body) o.body = JSON.stringify(body);
+  const r = await fetch(API + path, o);
+  if (r.status === 401) { showLogin(); return null; }
+  if (r.status === 404) { return null; }
+  return r.json().catch(()=>null);
+}
+
+// ════════════════════════════════════════════════════════ Error page
+function showErrorPage(msg) {
+  document.getElementById('app').innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px;color:var(--text3);text-align:center;padding:40px">
+      <div style="font-size:48px">⚠</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text)">Ошибка соединения</div>
+      <div style="font-size:14px;max-width:400px">${msg||'Сервер недоступен. Проверьте подключение.'}</div>
+      <button class="btn btn-primary" onclick="location.reload()" style="margin-top:8px">↻ Повторить</button>
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════════ Auth
+async function checkAuth() {
+  try {
+    const status = await fetch('/api/auth/status').then(r=>r.json()).catch(()=>({auth_enabled:false}));
+    if (status.auth_enabled && !authToken) { showLogin(); return; }
+    init();
+  } catch(e) {
+    showErrorPage('Не удалось подключиться к серверу NetCtrl.');
+  }
+}
+function showLogin() { document.getElementById('login-overlay').classList.add('visible'); }
+async function doLogin() {
+  const pass = document.getElementById('login-pass').value;
+  const res = await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass})}).then(r=>r.json()).catch(()=>null);
+  if (res?.ok) {
+    authToken = res.token;
+    sessionStorage.setItem('authToken', authToken);
+    document.getElementById('login-overlay').classList.remove('visible');
+    init();
+  } else {
+    document.getElementById('login-err').textContent = 'Неверный пароль';
+  }
+}
+async function changePassword() {
+  const current = document.getElementById('pass-current').value;
+  const next = document.getElementById('pass-new').value;
+  const confirm = document.getElementById('pass-confirm').value;
+  if (next !== confirm) { toast('Пароли не совпадают'); return; }
+  const res = await api('PUT','/api/settings/password',{current,next});
+  if (res?.ok) { authToken = res.token; sessionStorage.setItem('authToken',authToken); toast('✓ Пароль изменён'); }
+  else toast('Ошибка: ' + (res?.error || 'неверный пароль'));
+}
+async function toggleAuth() {
+  const enabled = document.getElementById('s-auth-enabled').checked ? '1' : '0';
+  await api('PUT','/api/settings',{auth_enabled: enabled});
+  toast(enabled==='1' ? '🔐 Авторизация включена' : '🔓 Авторизация отключена');
+}
+
+// ════════════════════════════════════════════════════════ Navigation
+function switchView(view, el) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('view-'+view)?.classList.add('active');
+  el?.classList.add('active');
+  if (view==='monitoring') loadMonitoring();
+  if (view==='configs') { loadSnapshotsList(); populateRouterSelects(); }
+  if (view==='updates') { renderFwTable(); populateUpdateSelects(); loadUpdateHistory(); }
+  if (view==='settings') loadSettingsPage();
+}
+function switchTab(section, tab, el) {
+  const prefix = {'monitoring':'mon','configs':'cfg','updates':'upd','settings':'set'}[section];
+  document.querySelectorAll(`#view-${section} .tab-pane`).forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll(`#view-${section} .tab-btn`).forEach(b=>b.classList.remove('active'));
+  document.getElementById(`${prefix}-${tab}`)?.classList.add('active');
+  el?.classList.add('active');
+  if (section==='monitoring' && tab==='map') setTimeout(initMap, 100);
+  if (section==='monitoring' && tab==='charts') populateChartRouterSel();
+  if (section==='monitoring' && tab==='events') loadEvents();
+  if (section==='monitoring' && tab==='table') renderMonTable();
+  if (section==='settings' && tab==='groups') loadGroups();
+  if (section==='settings' && tab==='system') loadSystemInfo();
+  if (section==='updates' && tab==='history') loadUpdateHistory();
+}
+
+// ════════════════════════════════════════════════════════ Routers
+async function loadRouters() {
+  document.getElementById('r-loading').style.display='';
+  document.getElementById('grid').style.display='none';
+  try { routers = await api('GET','/api/routers'); } catch(e) { routers = getDemoRouters(); }
+  if (!routers) routers = getDemoRouters();
+  routers = routers.map(r=>({...r, tags: typeof r.tags==='string' ? JSON.parse(r.tags||'[]') : (r.tags||[])}));
+  document.getElementById('r-loading').style.display='none';
+  document.getElementById('grid').style.display='';
+  renderAll(); // always full re-render so last_seen timestamps update
+  clearTimeout(window._rt);
+  window._rt = setTimeout(loadRouters, 30000);
+}
+function getDemoRouters() {
+  return [
+    {id:1,name:'core-spb-01',ip:'10.10.1.1',location:'СПБ / ДЦ Сеть1',model:'GL-MT6000',firmware:'24.10.0',tags:['core','spb'],status:'online',cpu:12,ram:34,clients:18,uptime_sec:4099200,last_seen:new Date().toISOString()},
+    {id:2,name:'edge-msk-07',ip:'10.10.2.7',location:'МСК / Офис Центр',model:'Xiaomi AX3000T',firmware:'24.10.0',tags:['edge','msk'],status:'online',cpu:67,ram:71,clients:42,uptime_sec:1036800,last_seen:new Date().toISOString()},
+    {id:3,name:'edge-msk-08',ip:'10.10.2.8',location:'МСК / Офис Юг',model:'Xiaomi AX3000T',firmware:'23.05.3',tags:['edge','msk'],status:'offline',cpu:0,ram:0,clients:0,uptime_sec:0,last_seen:null},
+    {id:4,name:'ap-krd-03',ip:'10.10.5.3',location:'КРД / Склад A',model:'TP-Link EAP615',firmware:'24.10.0',tags:['ap','krd'],status:'online',cpu:8,ram:28,clients:7,uptime_sec:7689600,last_seen:new Date().toISOString()},
+    {id:5,name:'core-nsk-01',ip:'10.10.8.1',location:'НСК / ДЦ Запад',model:'GL-MT6000',firmware:'23.05.1',tags:['core','nsk'],status:'warning',cpu:0,ram:0,clients:0,uptime_sec:0,last_seen:null},
+  ];
+}
+function renderAll() { renderSidebar(); renderTagFilters(); renderCards(); }
+function renderSidebar() {
+  document.getElementById('s-online').textContent  = routers.filter(r=>r.status==='online').length;
+  document.getElementById('s-warning').textContent = routers.filter(r=>r.status==='warning').length;
+  document.getElementById('s-offline').textContent = routers.filter(r=>r.status==='offline').length;
+  document.getElementById('routers-sub').textContent = `${routers.length} устройств · ${routers.filter(r=>r.status==='online').length} онлайн`;
+}
+function renderTagFilters() {
+  const allTags = [...new Set(routers.flatMap(r=>r.tags))].sort();
+  const wrap = document.getElementById('tag-filters');
+  wrap.innerHTML = ['all',...allTags].map(t=>{
+    const c = t==='all'?null:(TAG_COLORS[t]||DTAG);
+    const active = tagFilter===t;
+    return `<button class="tag-filter" onclick="setTagFilter('${t}')" style="${active&&c?`background:${c.bg};border-color:${c.border};color:${c.text}`:active?'background:var(--accent-bg);border-color:var(--accent-border);color:#a5b4fc':''}">${t==='all'?'# все':t}</button>`;
+  }).join('');
+}
+function getFiltered() {
+  const q = document.getElementById('r-search').value.toLowerCase();
+  return routers.filter(r=>{
+    const ms = !q||r.name.toLowerCase().includes(q)||r.ip.includes(q)||(r.location||'').toLowerCase().includes(q)||(r.model||'').toLowerCase().includes(q);
+    return ms && (statusFilter==='all'||r.status===statusFilter) && (tagFilter==='all'||r.tags.includes(tagFilter));
+  });
+}
+function renderCards() {
+  const filtered = getFiltered();
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('r-empty');
+  const selRow = document.getElementById('select-row');
+  const cols = localStorage.getItem('gridCols')||'3';
+  grid.style.setProperty('--cols', cols);
+  if (!filtered.length) { grid.innerHTML=''; empty.style.display=''; selRow.style.display='none'; return; }
+  empty.style.display='none'; selRow.style.display='';
+  document.getElementById('select-label').textContent = `Выбрать все (${filtered.length})${selected.size?` · ${selected.size} выбрано`:''}`;
+  grid.innerHTML = filtered.map(r=>cardHTML(r)).join('');
+  filtered.forEach(r=>{ const cb=document.getElementById(`cb-${r.id}`); if(cb) cb.checked=selected.has(r.id); });
+  document.getElementById('select-all').checked = selected.size===filtered.length && filtered.length>0;
+}
+function fmtUptime(sec) { if(!sec) return '—'; const d=Math.floor(sec/86400),h=Math.floor((sec%86400)/3600); return d>0?`${d}д ${h}ч`:`${h}ч`; }
+function fmtLastSeen(dt) {
+  if(!dt) return 'нет данных';
+  // Parse as UTC if no timezone info, then display in local time
+  const date = new Date(dt.endsWith('Z')||dt.includes('+') ? dt : dt+'Z');
+  const diff = (Date.now() - date.getTime()) / 1000;
+  if(diff < 0 || diff < 90) return 'сейчас';
+  if(diff < 3600) return `${Math.floor(diff/60)}мин назад`;
+  if(diff < 86400) return `${Math.floor(diff/3600)}ч назад`;
+  return `${Math.floor(diff/86400)}д назад`;
+}
+function barColor(v,w=60,d=85){return v>=d?'var(--red)':v>=w?'var(--yellow)':'var(--green)'}
+function cardHTML(r) {
+  const on=r.status==='online';
+  const tagHTML=r.tags.map(t=>{const c=TAG_COLORS[t]||DTAG;return`<span class="tag" style="background:${c.bg};color:${c.text};border:1px solid ${c.border}">${t}</span>`;}).join('');
+  const stats=on?`<div class="stats-grid">
+    <div><div class="stat-label">CPU</div><div class="bar-row"><div class="bar-track"><div class="bar-fill" style="width:${r.cpu}%;background:${barColor(r.cpu)}"></div></div><span class="bar-pct" style="color:${barColor(r.cpu)}">${r.cpu}%</span></div></div>
+    <div><div class="stat-label">RAM</div><div class="bar-row"><div class="bar-track"><div class="bar-fill" style="width:${r.ram}%;background:${barColor(r.ram,70,90)}"></div></div><span class="bar-pct" style="color:${barColor(r.ram,70,90)}">${r.ram}%</span></div></div>
+    <div class="stat-kv"><span>Клиенты</span><span>${r.clients}</span></div>
+    <div class="stat-kv"><span>Аптайм</span><span>${fmtUptime(r.uptime_sec)}</span></div>
+  </div>`:'';
+  return `<div class="card ${r.status==='offline'?'offline':''} ${selected.has(r.id)?'selected':''}" id="card-${r.id}" onclick="toggleCard(${r.id})">
+    <div class="card-header">
+      <input class="card-check" type="checkbox" id="cb-${r.id}" onclick="event.stopPropagation()" onchange="toggleSelect(${r.id})">
+      <div class="card-info">
+        <div class="card-name-row"><span class="status-dot ${r.status}"></span><span class="card-name">${r.name}</span></div>
+        <div class="card-meta">${r.location||'—'} · ${r.model||'—'}</div>
+        <div class="tags">${tagHTML}</div>
+      </div>
+      <div class="card-ip-block">
+        <div class="card-ip">${r.ip}</div>
+        <div class="card-lastseen ${r.status==='warning'?'warn':''}">${r.status==='warning'?'⚠ ':''}${fmtLastSeen(r.last_seen)}</div>
+      </div>
+    </div>
+    ${stats}
+    <div class="card-actions" onclick="event.stopPropagation()">
+      <button class="card-btn luci" ${!on?'disabled':''} onclick="openLuCI(${r.id})">⬡ LuCI</button>
+      <button class="card-btn ssh"  ${!on?'disabled':''} onclick="openSSH(${r.id})">❯_ SSH</button>
+      <button class="card-btn more" onclick="showCardMenu(event,${r.id})">···</button>
+    </div>
+  </div>`;
+}
+function setStatusFilter(btn) { document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); statusFilter=btn.dataset.status; renderCards(); }
+function setTagFilter(tag) { tagFilter=tag; renderTagFilters(); renderCards(); }
+function toggleCard(id) { toggleSelect(id); const cb=document.getElementById(`cb-${id}`); if(cb) cb.checked=selected.has(id); const card=document.getElementById(`card-${id}`); if(card) card.classList.toggle('selected',selected.has(id)); }
+function toggleSelect(id) { if(selected.has(id)) selected.delete(id); else selected.add(id); updateBulkBar(); document.getElementById('select-label').textContent=`Выбрать все (${getFiltered().length})${selected.size?` · ${selected.size} выбрано`:''}`; }
+function toggleSelectAll() { const filtered=getFiltered(); if(selected.size===filtered.length) selected.clear(); else filtered.forEach(r=>selected.add(r.id)); renderCards(); updateBulkBar(); }
+function clearSelection() { selected.clear(); renderCards(); updateBulkBar(); }
+function updateBulkBar() { const bar=document.getElementById('bulk-bar'); document.getElementById('bulk-count').textContent=`${selected.size} выбрано`; bar.classList.toggle('visible',selected.size>0); }
+function openLuCI(id) { window.open(`/luci-login/${id}`,'_blank'); const r=routers.find(x=>x.id===id); toast(`Открываю LuCI для ${r?.name}`); }
+function showCardMenu(e, id) {
+  e.stopPropagation();
+  const r = routers.find(x=>x.id===id);
+  if (!r) return;
+  const action = prompt(`${r.name}\n\n1. Ping\n2. Reboot\n3. Переименовать\n4. Редактировать\n5. Координаты на карте\n6. Удалить\n\nВведите номер:`);
+  if (action==='1') pingRouter(id);
+  else if (action==='2') rebootRouter(id);
+  else if (action==='3') renameRouter(id);
+  else if (action==='4') editRouter(id);
+  else if (action==='5') setRouterCoords(id);
+  else if (action==='6') deleteRouter(id);
+}
+async function pingRouter(id) { const r=routers.find(x=>x.id===id); toast(`Пингую ${r.name}...`); const res=await api('POST',`/api/routers/${id}/ping`); toast(res?.ok?`✓ ${r.name} отвечает (${res.ms}мс)`:`✗ ${r.name} не отвечает`); }
+async function rebootRouter(id) { const r=routers.find(x=>x.id===id); if(!confirm(`Перезагрузить ${r.name}?`)) return; await api('POST',`/api/routers/${id}/reboot`); toast(`↻ ${r.name} перезагружается...`); r.status='rebooting'; renderCards(); }
+async function renameRouter(id) { const r=routers.find(x=>x.id===id); const n=prompt('Новое имя:',r.name); if(!n||n===r.name) return; await api('PUT',`/api/routers/${id}`,{...r,name:n,tags:r.tags}); r.name=n; renderAll(); toast(`Переименован в ${n}`); }
+async function deleteRouter(id) { const r=routers.find(x=>x.id===id); if(!confirm(`Удалить ${r.name}?`)) return; await api('DELETE',`/api/routers/${id}`); routers=routers.filter(x=>x.id!==id); selected.delete(id); renderAll(); toast(`Удалён ${r.name}`); }
+function editRouter(id) {
+  const r = routers.find(x=>x.id===id); if(!r) return;
+  document.getElementById('f-name').value=r.name;
+  document.getElementById('f-ip').value=r.ip;
+  document.getElementById('f-location').value=r.location||'';
+  document.getElementById('f-model').value=r.model||'';
+  document.getElementById('f-tags').value=(r.tags||[]).join(', ');
+  document.getElementById('f-lat').value=r.lat||'';
+  document.getElementById('f-lng').value=r.lng||'';
+  document.getElementById('f-ssh-user').value=r.ssh_user||'root';
+  document.getElementById('f-ssh-port').value=r.ssh_port||22;
+  document.getElementById('f-ssh-pass').value='';
+  openAddModal(id);
+  // Set group after modal opens (select is populated inside openAddModal)
+  setTimeout(()=>{
+    const gs = document.getElementById('f-group');
+    if(gs && r.group_id) gs.value = r.group_id;
+  }, 0);
+}
+function setRouterCoords(id) {
+  const r = routers.find(x=>x.id===id);
+  // Switch to map tab and pre-fill the inline coord panel
+  switchView('monitoring', document.querySelector('[data-view="monitoring"]'));
+  setTimeout(()=>{
+    switchTab('monitoring','map', document.querySelector('#view-monitoring .tab-btn:nth-child(3)'));
+    setTimeout(()=>{
+      const sel = document.getElementById('map-router-sel');
+      if (sel) { sel.value = id; }
+      const latEl = document.getElementById('map-lat');
+      const lngEl = document.getElementById('map-lng');
+      if (latEl) latEl.value = r?.lat||'';
+      if (lngEl) lngEl.value = r?.lng||'';
+      toast('Кликните на карте чтобы задать точку, затем нажмите «Сохранить»');
+    }, 150);
+  }, 100);
+}
+async function bulkPing() {
+  const ids = [...selected];
+  toast(`Пингую ${ids.length} роутеров...`);
+  const results = await Promise.all(ids.map(async id => {
+    const r = routers.find(x=>x.id===id);
+    const res = await api('POST',`/api/routers/${id}/ping`).catch(()=>({ok:false}));
+    return { name: r?.name||id, ip: r?.ip||'', ok: res?.ok, ms: res?.ms };
+  }));
+  const ok = results.filter(r=>r.ok).length;
+  // Show results modal
+  const existing = document.getElementById('ping-results-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'ping-results-modal';
+  modal.className = 'modal-bg visible';
+  modal.innerHTML = `<div class="modal" style="max-width:520px">
+    <div class="modal-title">
+      <span>Результаты Ping (${ok}/${ids.length} ответили)</span>
+      <button class="modal-close" onclick="document.getElementById('ping-results-modal').remove()">✕</button>
+    </div>
+    <div style="max-height:400px;overflow-y:auto">
+      <table class="data-table" style="font-size:12px">
+        <thead><tr><th>Роутер</th><th>IP</th><th>Статус</th><th>Задержка</th></tr></thead>
+        <tbody>${results.map(r=>`<tr>
+          <td style="font-family:var(--mono)">${r.name}</td>
+          <td style="font-family:var(--mono);color:#60a5fa">${r.ip}</td>
+          <td><span style="color:${r.ok?'var(--green)':'var(--red)'}">${r.ok?'✓ OK':'✗ Нет ответа'}</span></td>
+          <td style="font-family:var(--mono)">${r.ok?r.ms+'мс':'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('ping-results-modal').remove()">Закрыть</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+async function bulkReboot() { if(!confirm(`Перезагрузить ${selected.size} роутеров?`)) return; await Promise.all([...selected].map(id=>api('POST',`/api/routers/${id}/reboot`).catch(()=>{}))); toast(`↻ Перезагружаю ${selected.size} роутеров...`); clearSelection(); }
+function bulkPushConfig() { switchView('configs', document.querySelector('[data-view="configs"]')); setTimeout(()=>switchTab('configs','push',document.querySelector('#view-configs .tab-btn:nth-child(2)')),100); }
+
+// ════════════════════════════════════════════════════════ Add Modal
+let editingId = null;
+function openAddModal(id=null) {
+  editingId = id;
+  const modal = document.getElementById('add-modal');
+  const title = modal.querySelector('.modal-title span') || modal.querySelector('.modal-title');
+  if (!id) { document.getElementById('f-name').value=''; document.getElementById('f-ip').value=''; document.getElementById('f-location').value=''; document.getElementById('f-model').value=''; document.getElementById('f-tags').value=''; document.getElementById('f-lat').value=''; document.getElementById('f-lng').value=''; document.getElementById('f-ssh-user').value='root'; document.getElementById('f-ssh-port').value='22'; document.getElementById('f-ssh-pass').value=''; }
+  // Populate group select
+  const gs = document.getElementById('f-group');
+  gs.innerHTML = '<option value="">— без группы —</option>' + groups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
+  modal.classList.add('visible');
+}
+function closeAddModal() { document.getElementById('add-modal').classList.remove('visible'); editingId=null; }
+async function submitAddRouter() {
+  const name=document.getElementById('f-name').value.trim();
+  const ip=document.getElementById('f-ip').value.trim();
+  if(!name||!ip){alert('Имя и IP обязательны');return;}
+  const tags=document.getElementById('f-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const body={name,ip,location:document.getElementById('f-location').value,model:document.getElementById('f-model').value,tags,ssh_user:document.getElementById('f-ssh-user').value||'root',ssh_port:parseInt(document.getElementById('f-ssh-port').value)||22,ssh_pass:document.getElementById('f-ssh-pass').value,lat:parseFloat(document.getElementById('f-lat').value)||null,lng:parseFloat(document.getElementById('f-lng').value)||null,group_id:parseInt(document.getElementById('f-group').value)||null};
+  if (editingId) {
+    await api('PUT',`/api/routers/${editingId}`,body);
+    const r=routers.find(x=>x.id===editingId);
+    if(r) Object.assign(r,body);
+    toast(`✓ Роутер ${name} обновлён`);
+  } else {
+    const res=await api('POST','/api/routers',body);
+    if(res?.id) routers.push({...body,id:res.id,status:'unknown',cpu:0,ram:0,clients:0,uptime_sec:0});
+    toast(`✓ Роутер ${name} добавлен`);
+  }
+  closeAddModal(); renderAll();
+}
+
+// ════════════════════════════════════════════════════════ SSH Terminal
+let term=null, fitAddon=null, sshWs=null;
+function openSSH(id) {
+  const r=routers.find(x=>x.id===id); if(!r) return;
+  document.getElementById('ssh-modal').classList.add('visible');
+  document.getElementById('term-title').textContent=`SSH — root@${r.ip} (${r.name})`;
+  document.getElementById('term-connecting').style.display='';
+  document.getElementById('terminal').style.display='none';
+  if(term){term.dispose();term=null;}
+  // Connecting timer
+  let elapsed = 0;
+  const timerEl = document.createElement('div');
+  timerEl.style.cssText='font-size:11px;color:#4b5563;margin-top:4px';
+  document.getElementById('term-connecting').appendChild(timerEl);
+  const timer = setInterval(()=>{ elapsed++; timerEl.textContent=`${elapsed}с`; }, 1000);
+  term=new Terminal({fontFamily:"'JetBrains Mono','Consolas',monospace",fontSize:13,lineHeight:1.4,theme:{background:'#0d0d0f',foreground:'#d1d5db',cursor:'#22c55e',green:'#22c55e',red:'#ef4444',yellow:'#f59e0b',blue:'#60a5fa',magenta:'#a78bfa',cyan:'#22d3ee'},cursorBlink:true,allowTransparency:true});
+  fitAddon=new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  const wsProto=location.protocol==='https:'?'wss:':'ws:';
+  sshWs=new WebSocket(`${wsProto}//${location.host}/ws/ssh?id=${r.id}`);
+  sshWs.binaryType='arraybuffer';
+  sshWs.onopen=()=>{
+    clearInterval(timer);
+    document.getElementById('term-connecting').style.display='none';
+    document.getElementById('terminal').style.display='';
+    term.open(document.getElementById('terminal')); fitAddon.fit();
+    sshWs.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));
+    term.onData(d=>{if(sshWs.readyState===WebSocket.OPEN) sshWs.send(JSON.stringify({type:'data',data:d}));});
+    term.onResize(({cols,rows})=>{if(sshWs.readyState===WebSocket.OPEN) sshWs.send(JSON.stringify({type:'resize',cols,rows}));});
+  };
+  sshWs.onmessage=e=>{if(e.data instanceof ArrayBuffer) term.write(new Uint8Array(e.data)); else term.write(e.data);};
+  sshWs.onerror=()=>{clearInterval(timer);document.getElementById('term-connecting').innerHTML='<span style="color:var(--red)">✗ Ошибка подключения</span>';};
+  sshWs.onclose=()=>{if(term) term.write('\r\n\x1b[33m[Соединение закрыто]\x1b[0m\r\n');};
+  const rh=()=>{if(fitAddon) fitAddon.fit();}; window.addEventListener('resize',rh);
+  document.getElementById('ssh-modal')._cleanup=()=>{clearInterval(timer);window.removeEventListener('resize',rh);};
+}
+function closeSSH() {
+  document.getElementById('ssh-modal').classList.remove('visible');
+  if(sshWs){sshWs.close();sshWs=null;} if(term){term.dispose();term=null;}
+  const c=document.getElementById('ssh-modal')._cleanup; if(c){c();delete document.getElementById('ssh-modal')._cleanup;}
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&document.getElementById('ssh-modal').classList.contains('visible')) closeSSH(); });
+
+// ════════════════════════════════════════════════════════ Monitoring
+async function loadMonitoring() {
+  const stats=await api('GET','/api/stats');
+  if (!stats) return;
+  document.getElementById('m-total').textContent=stats.total;
+  document.getElementById('m-online').textContent=stats.online;
+  document.getElementById('m-offline').textContent=stats.offline;
+  document.getElementById('m-clients').textContent=stats.totalClients;
+  document.getElementById('m-cpu').textContent=stats.avgCpu+'%';
+  document.getElementById('m-ram').textContent=stats.avgRam+'%';
+  // Problems
+  const prob=document.getElementById('mon-problems');
+  const problems=[];
+  if(stats.highCpu?.length) problems.push(...stats.highCpu.map(n=>`<div class="event-item"><span class="event-dot" style="background:var(--red)"></span><span class="event-msg">🔴 CPU > 85%: <b>${n}</b></span></div>`));
+  if(stats.highRam?.length) problems.push(...stats.highRam.map(n=>`<div class="event-item"><span class="event-dot" style="background:var(--yellow)"></span><span class="event-msg">⚠️ RAM > 90%: <b>${n}</b></span></div>`));
+  const offlineRouters=routers.filter(r=>r.status==='offline'||r.status==='warning');
+  offlineRouters.forEach(r=>problems.push(`<div class="event-item"><span class="event-dot offline"></span><span class="event-msg">🔴 Offline: <b>${r.name}</b> (${r.ip})</span></div>`));
+  prob.innerHTML=problems.length?problems.join(''):'<div style="color:var(--green);font-size:13px">✓ Всё в порядке</div>';
+  loadEvents(3);
+}
+
+async function loadEvents(limit=50) {
+  const type=document.getElementById('event-type-filter')?.value||'';
+  const url=`/api/events?limit=${limit}${type?`&type=${type}`:''}`;
+  const events=await api('GET',url);
+  if(!events) return;
+  const renderEvt=(e)=>`<div class="event-item"><span class="event-dot ${e.type}"></span><div class="event-msg"><b>${e.router_name||'—'}</b> · ${e.message}</div><span class="event-time">${fmtLastSeen(e.created_at)}</span></div>`;
+  const recent=document.getElementById('mon-recent-events');
+  if(recent) recent.innerHTML=events.slice(0,5).map(renderEvt).join('')||'<div style="color:var(--text4);font-size:13px">Нет событий</div>';
+  const list=document.getElementById('events-list');
+  if(list) list.innerHTML=events.map(renderEvt).join('')||'<div style="color:var(--text4);font-size:13px">Нет событий</div>';
+}
+
+// ════════════════════════════════════════════════════════ Charts
+function populateChartRouterSel() {
+  const sel=document.getElementById('chart-router-sel');
+  sel.innerHTML=routers.filter(r=>r.status==='online').map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  loadChart();
+}
+async function loadChart() {
+  const id=document.getElementById('chart-router-sel')?.value;
+  const hours=document.getElementById('chart-hours')?.value||24;
+  if(!id) return;
+  const data=await api('GET',`/api/metrics/${id}?hours=${hours}`);
+  if(!data?.length) return;
+  const labels=data.map(d=>{ const t=new Date(d.recorded_at); return `${t.getHours()}:${String(t.getMinutes()).padStart(2,'0')}`; });
+  const mkChart=(id,label,data,color)=>{
+    if(charts[id]) charts[id].destroy();
+    const ctx=document.getElementById(id)?.getContext('2d');
+    if(!ctx) return;
+    charts[id]=new Chart(ctx,{type:'line',data:{labels,datasets:[{label,data,borderColor:color,backgroundColor:color+'22',tension:.3,pointRadius:0,borderWidth:2,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:8,color:'#6b7280',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},y:{ticks:{color:'#6b7280',font:{size:10}},grid:{color:'rgba(255,255,255,.05)'},min:0,max:id==='chart-clients'?undefined:100}}}});
+  };
+  mkChart('chart-cpu','CPU %',data.map(d=>d.cpu),'#6366f1');
+  mkChart('chart-ram','RAM %',data.map(d=>d.ram),'#a78bfa');
+  mkChart('chart-clients','Клиенты',data.map(d=>d.clients),'#22d3ee');
+}
+
+// ════════════════════════════════════════════════════════ Map
+let mapInstance=null;
+function initMap() {
+  // Populate router selector
+  const sel = document.getElementById('map-router-sel');
+  if (sel) {
+    sel.innerHTML = routers.map(r=>`<option value="${r.id}">${r.name} (${r.ip})</option>`).join('');
+    // Pre-select if router has coords
+    const first = routers.find(r=>r.lat&&r.lng)||routers[0];
+    if (first) {
+      sel.value = first.id;
+      document.getElementById('map-lat').value = first.lat||'';
+      document.getElementById('map-lng').value = first.lng||'';
+    }
+    sel.onchange = () => {
+      const r = routers.find(x=>x.id===parseInt(sel.value));
+      if (r) { document.getElementById('map-lat').value=r.lat||''; document.getElementById('map-lng').value=r.lng||''; }
+    };
+  }
+  if(mapInstance) { mapInstance.remove(); mapInstance=null; }
+  mapInstance=L.map('map-container').setView([47.2083,38.8869],10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(mapInstance);
+  const colors={online:'#22c55e',offline:'#ef4444',warning:'#f59e0b',unknown:'#6b7280'};
+  const withCoords = routers.filter(r=>r.lat&&r.lng);
+  withCoords.forEach(r=>{
+    const icon=L.divIcon({html:`<div style="width:14px;height:14px;border-radius:50%;background:${colors[r.status]||'#6b7280'};border:2px solid #fff;box-shadow:0 0 6px ${colors[r.status]||'#6b7280'}"></div>`,iconSize:[14,14],iconAnchor:[7,7],className:''});
+    const popup = `<b>${r.name}</b><br><span style="color:#60a5fa">${r.ip}</span><br>${r.location||''}<br>CPU: ${r.cpu}%  RAM: ${r.ram}%<br>Клиенты: ${r.clients}`;
+    L.marker([r.lat,r.lng],{icon}).addTo(mapInstance).bindPopup(popup);
+  });
+  if(withCoords.length) {
+    const group = L.featureGroup(withCoords.map(r=>L.marker([r.lat,r.lng])));
+    mapInstance.fitBounds(group.getBounds().pad(0.2));
+  } else {
+    document.getElementById('map-container').insertAdjacentHTML('beforeend',
+      '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.75);color:#9ca3af;padding:14px 22px;border-radius:10px;font-size:13px;z-index:1000;text-align:center">📍 Выберите роутер выше и укажите координаты,<br>чтобы он появился на карте</div>');
+  }
+  // Allow clicking on map to set coords
+  mapInstance.on('click', e => {
+    document.getElementById('map-lat').value = e.latlng.lat.toFixed(6);
+    document.getElementById('map-lng').value = e.latlng.lng.toFixed(6);
+    toast('Координаты выбраны — нажмите «Сохранить»');
+  });
+}
+
+async function saveMapCoords() {
+  const sel = document.getElementById('map-router-sel');
+  const id = parseInt(sel?.value); if(!id) { toast('Выберите роутер'); return; }
+  const lat = parseFloat(document.getElementById('map-lat').value);
+  const lng = parseFloat(document.getElementById('map-lng').value);
+  if(!lat||!lng) { toast('Укажите координаты или кликните на карте'); return; }
+  const r = routers.find(x=>x.id===id); if(!r) return;
+  await api('PUT',`/api/routers/${id}`,{...r,tags:r.tags,lat,lng});
+  r.lat=lat; r.lng=lng;
+  toast(`✓ Координаты ${r.name} сохранены`);
+  initMap();
+}
+
+// ════════════════════════════════════════════════════════ Monitoring table
+function sortTable(key) { if(sortKey===key) sortAsc=!sortAsc; else{sortKey=key;sortAsc=true;} renderMonTable(); }
+function renderMonTable() {
+  const q=(document.getElementById('mon-search')?.value||'').toLowerCase();
+  let data=[...routers].filter(r=>!q||r.name.toLowerCase().includes(q)||r.ip.includes(q));
+  data.sort((a,b)=>{const av=a[sortKey]||'',bv=b[sortKey]||'';return sortAsc?(av>bv?1:-1):(av<bv?1:-1);});
+  document.getElementById('mon-table-body').innerHTML=data.map(r=>`<tr>
+    <td><span class="status-dot ${r.status}" style="margin-right:6px"></span><span style="font-family:var(--mono);font-size:12px">${r.name}</span></td>
+    <td style="font-family:var(--mono);font-size:12px;color:#60a5fa">${r.ip}</td>
+    <td><span style="padding:3px 8px;border-radius:4px;font-size:11px;background:${r.status==='online'?'var(--green-bg)':r.status==='offline'?'var(--red-bg)':'var(--yellow-bg)'};color:${r.status==='online'?'var(--green)':r.status==='offline'?'var(--red)':'var(--yellow)'}">${r.status}</span></td>
+    <td><span style="color:${barColor(r.cpu)};font-family:var(--mono)">${r.cpu}%</span></td>
+    <td><span style="color:${barColor(r.ram,70,90)};font-family:var(--mono)">${r.ram}%</span></td>
+    <td style="font-family:var(--mono)">${r.clients}</td>
+    <td style="font-family:var(--mono);color:var(--text3)">${fmtUptime(r.uptime_sec)}</td>
+    <td style="font-family:var(--mono);color:var(--text3)">${r.firmware||'—'}</td>
+    <td>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="pingRouter(${r.id})" ${r.status!=='online'?'disabled':''}>Ping</button>
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="openSSH(${r.id})" ${r.status!=='online'?'disabled':''}>SSH</button>
+      </div>
+    </td>
+  </tr>`).join('');
+}
+
+// ════════════════════════════════════════════════════════ Configs
+function populateRouterSelects() {
+  const ids=['snap-router-sel','push-routers-sel','backup-router-sel','nlbwmon-router-sel','pkg-router-sel','sched-router-sel'];
+  const online=routers.filter(r=>r.status==='online');
+  ids.forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    if(id==='push-routers-sel') el.innerHTML=routers.map(r=>`<option value="${r.id}">${r.name} (${r.ip})</option>`).join('');
+    else el.innerHTML=online.map(r=>`<option value="${r.id}">${r.name} (${r.ip})</option>`).join('');
+  });
+}
+async function createSnapshot() {
+  const id=document.getElementById('snap-router-sel')?.value; if(!id){toast('Выберите роутер');return;}
+  const label=document.getElementById('snap-label')?.value;
+  toast('Создаю снапшот...');
+  const res=await api('POST',`/api/snapshots/${id}`,{label});
+  if(res?.ok) { toast(`✓ Снапшот создан: ${res.label}`); loadSnapshotsList(); }
+  else toast('Ошибка: '+(res?.error||'SSH недоступен'));
+}
+async function loadSnapshotsList() {
+  const snaps=await api('GET','/api/snapshots');
+  const el=document.getElementById('snaps-list'); if(!el) return;
+  if(!snaps?.length){el.innerHTML='<div style="color:var(--text4);font-size:13px">Нет снапшотов</div>';return;}
+  el.innerHTML=snaps.map(s=>`<div class="snap-item">
+    <div>
+      <div class="snap-name">${s.router_name}</div>
+      <div class="snap-meta">${s.label} · ${fmtLastSeen(s.created_at)}</div>
+    </div>
+    <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="viewSnapshot(${s.id})">Просмотр</button>
+    <button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="deleteSnapshot(${s.id})">✕</button>
+  </div>`).join('');
+}
+async function viewSnapshot(id) {
+  const snap=await api('GET',`/api/snapshots/${id}/content`);
+  if(!snap) return;
+  document.getElementById('snap-modal-title').textContent=`${snap.router_name} · ${snap.label}`;
+  document.getElementById('snap-content').textContent=snap.content;
+  document.getElementById('snap-modal').classList.add('visible');
+}
+async function deleteSnapshot(id) { if(!confirm('Удалить снапшот?')) return; await api('DELETE',`/api/snapshots/${id}`); loadSnapshotsList(); toast('Снапшот удалён'); }
+async function pushConfig() {
+  const sel=document.getElementById('push-routers-sel');
+  const ids=[...sel.selectedOptions].map(o=>parseInt(o.value));
+  const commands=document.getElementById('push-commands')?.value;
+  if(!ids.length){toast('Выберите хотя бы один роутер');return;}
+  if(!commands){toast('Введите команды');return;}
+  toast(`Применяю на ${ids.length} роутерах...`);
+  const res=await api('POST','/api/push-config',{router_ids:ids,commands});
+  const el=document.getElementById('push-result');
+  if(res?.results) {
+    el.innerHTML=`<div style="margin-top:4px">${res.results.map(r=>`<div style="padding:6px;background:${r.ok?'var(--green-bg)':'var(--red-bg)'};border-radius:6px;margin-bottom:6px;font-size:12px"><b>${r.name||r.id}</b>: ${r.ok?'✓ OK':'✗ '+r.error}</div>`).join('')}</div>`;
+    toast(`✓ Выполнено на ${res.results.filter(r=>r.ok).length}/${ids.length}`);
+  }
+}
+function renderTemplates() {
+  const templates=[
+    {name:'Базовая безопасность',icon:'🔐',desc:'Отключить telnet, ограничить SSH только LAN',cmd:`uci set dropbear.@dropbear[0].Interface='lan'\nuci commit dropbear\n/etc/init.d/dropbear restart`},
+    {name:'Настройка DNS',icon:'🌐',desc:'Установить Cloudflare DNS 1.1.1.1',cmd:`uci set network.wan.dns='1.1.1.1 8.8.8.8'\nuci commit network\n/etc/init.d/network restart`},
+    {name:'Обновить opkg',icon:'📦',desc:'Обновить списки пакетов',cmd:`opkg update`},
+    {name:'AmneziaWG restart',icon:'🔒',desc:'Перезапустить AmneziaWireGuard',cmd:`/etc/init.d/amneziawg restart`},
+    {name:'Сбросить счётчики',icon:'📊',desc:'Перезапустить nlbwmon',cmd:`/etc/init.d/nlbwmon restart`},
+    {name:'Синхронизация времени',icon:'🕐',desc:'Принудительно синхронизировать NTP',cmd:`/etc/init.d/sysntpd restart`},
+  ];
+  const grid=document.getElementById('templates-grid');
+  grid.innerHTML=templates.map(t=>`<div class="section-card" style="cursor:pointer" onclick="useTemplate('${t.cmd.replace(/'/g,"\\'")}')">
+    <div style="font-size:24px;margin-bottom:8px">${t.icon}</div>
+    <div style="font-weight:600;margin-bottom:4px">${t.name}</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${t.desc}</div>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px">Использовать →</button>
+  </div>`).join('');
+}
+function useTemplate(cmd) { switchTab('configs','push',document.querySelector('#view-configs .tab-btn:nth-child(2)')); document.getElementById('push-commands').value=cmd; toast('Шаблон загружен — выберите роутеры и нажмите Push'); }
+async function backupRouter() {
+  const id=document.getElementById('backup-router-sel')?.value; if(!id){toast('Выберите роутер');return;}
+  const r=routers.find(x=>x.id===parseInt(id)); if(!r) return;
+  toast(`Создаю бэкап ${r.name}...`);
+  document.getElementById('backup-result').innerHTML='<div style="font-size:13px;color:var(--text3)">Выполняется sysupgrade -b...</div>';
+  try {
+    const res=await api('POST','/api/push-config',{router_ids:[parseInt(id)],commands:'sysupgrade -b /tmp/backup.tar.gz && echo OK'});
+    if(res?.results?.[0]?.ok) { document.getElementById('backup-result').innerHTML='<div style="color:var(--green);font-size:13px">✓ Бэкап создан в /tmp/backup.tar.gz на роутере. Скачайте через SSH: scp root@'+r.ip+':/tmp/backup.tar.gz .</div>'; }
+    else document.getElementById('backup-result').innerHTML='<div style="color:var(--red);font-size:13px">✗ Ошибка</div>';
+  } catch(e) { document.getElementById('backup-result').innerHTML='<div style="color:var(--red);font-size:13px">✗ '+e.message+'</div>'; }
+}
+async function installNlbwmon() {
+  const id=document.getElementById('nlbwmon-router-sel')?.value; if(!id){toast('Выберите роутер');return;}
+  toast('Устанавливаю nlbwmon...');
+  const cmd='opkg update && opkg install nlbwmon && /etc/init.d/nlbwmon enable && /etc/init.d/nlbwmon start && echo DONE';
+  const res=await api('POST','/api/push-config',{router_ids:[parseInt(id)],commands:cmd});
+  if(res?.results?.[0]?.ok) toast('✓ nlbwmon установлен и запущен');
+  else toast('✗ Ошибка установки');
+}
+
+// ════════════════════════════════════════════════════════ Updates
+function renderFwTable() {
+  document.getElementById('fw-tbody').innerHTML=routers.map(r=>`<tr>
+    <td><span class="status-dot ${r.status}" style="margin-right:6px"></span>${r.name}</td>
+    <td style="font-family:var(--mono);color:#60a5fa">${r.ip}</td>
+    <td style="font-family:var(--mono)">${r.firmware||'—'}</td>
+    <td><span style="font-size:11px;color:var(--text3)">Проверка вручную</span></td>
+    <td>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="toast('Обновление прошивки: загрузите образ на сервер и используйте sysupgrade -c')" ${r.status!=='online'?'disabled':''}>Обновить</button>
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="createSnapshotQuick(${r.id})" ${r.status!=='online'?'disabled':''}>Снапшот</button>
+      </div>
+    </td>
+  </tr>`).join('');
+}
+async function createSnapshotQuick(id) { const res=await api('POST',`/api/snapshots/${id}`,{label:'pre-update'}); toast(res?.ok?'✓ Снапшот создан':'✗ Ошибка'); }
+function populateUpdateSelects() { populateRouterSelects(); }
+async function loadPackages() {
+  const id=document.getElementById('pkg-router-sel')?.value; if(!id){toast('Выберите роутер');return;}
+  const el=document.getElementById('pkg-list');
+  el.innerHTML='<div style="display:flex;gap:8px;align-items:center;color:var(--text3);font-size:13px"><div class="spinner"></div> Проверяю...</div>';
+  const res=await api('GET',`/api/routers/${id}/packages`);
+  if(!res?.packages?.length){el.innerHTML='<div style="color:var(--green);font-size:13px">✓ Все пакеты актуальны</div>';return;}
+  el.innerHTML=`<div style="font-size:13px;color:var(--text3);margin-bottom:10px">Доступно обновлений: ${res.packages.length}</div>
+    <table class="data-table"><thead><tr><th>Пакет</th><th>Текущая</th><th>Новая</th></tr></thead>
+    <tbody>${res.packages.map(p=>`<tr><td>${p.name}</td><td style="font-family:var(--mono);color:var(--text3)">${p.from}</td><td style="font-family:var(--mono);color:var(--green)">${p.to}</td></tr>`).join('')}</tbody></table>`;
+}
+async function opkgUpdate() {
+  const id=document.getElementById('pkg-router-sel')?.value; if(!id){toast('Выберите роутер');return;}
+  toast('opkg update...');
+  const res=await api('POST',`/api/routers/${id}/opkg-update`);
+  if(res?.ok) toast('✓ opkg update выполнен');
+  else toast('✗ Ошибка: '+(res?.error||''));
+}
+async function loadUpdateHistory() {
+  const hist=await api('GET','/api/update-history');
+  const el=document.getElementById('upd-hist-list');
+  if(!hist?.length){el.innerHTML='<div style="color:var(--text4);font-size:13px">История пуста</div>';return;}
+  el.innerHTML=hist.map(h=>`<div class="event-item"><span class="event-dot ${h.status==='ok'?'online':'offline'}"></span><div class="event-msg"><b>${h.router_name}</b> · ${h.action} ${h.from_ver?`${h.from_ver} → ${h.to_ver}`:''}</div><span class="event-time">${fmtLastSeen(h.created_at)}</span></div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════ Settings
+async function loadSettingsPage() {
+  const s=await api('GET','/api/settings');
+  if(!s) return;
+  document.getElementById('s-app-name').value=s.app_name||'OpenWRT NetCtrl';
+  // язык: только ru
+  document.getElementById('s-grid-columns').value=s.grid_columns||'3';
+  document.getElementById('s-auth-enabled').checked=s.auth_enabled==='1';
+  document.getElementById('s-tg-token').value=s.telegram_token||'';
+  document.getElementById('s-tg-chatid').value=s.telegram_chat_id||'';
+  document.getElementById('s-heartbeat').value=s.heartbeat_interval||'30';
+  document.getElementById('s-offline-timeout').value=s.offline_timeout||'120';
+  document.getElementById('s-backup-interval').value=s.backup_interval||'weekly';
+  // Theme: localStorage wins, server is fallback only if no local preference
+  const localTheme = localStorage.getItem('theme');
+  setTheme(localTheme || s.theme || 'dark', false);
+  // язык зафиксирован: ru
+  // Update agent install cmd
+  const base=`${location.protocol}//${location.host}`;
+  const cmd1=document.getElementById('agent-install-cmd');
+  const cmd2=document.getElementById('agent-install-cmd2');
+  if(cmd1) cmd1.textContent=`wget ${base}/agent/install.sh -O - | sh`;
+  if(cmd2) cmd2.textContent=`NETCTRL_SERVER=${base} \\\nwget ${base}/agent/install.sh -O - | sh`;
+  loadGroups();
+}
+async function saveSettings() {
+  const data={
+    app_name:document.getElementById('s-app-name')?.value||'OpenWRT NetCtrl',
+    language:'ru',
+    grid_columns:document.getElementById('s-grid-columns')?.value||'3',
+    heartbeat_interval:document.getElementById('s-heartbeat')?.value||'30',
+    offline_timeout:document.getElementById('s-offline-timeout')?.value||'120',
+    backup_interval:document.getElementById('s-backup-interval')?.value||'weekly',
+    theme:document.documentElement.getAttribute('data-theme')||'dark',
+  };
+  await api('PUT','/api/settings',data);
+  document.getElementById('app-name').textContent=data.app_name;
+  document.title=data.app_name;
+  setGridCols(data.grid_columns);
+  toast('✓ Настройки сохранены');
+}
+async function saveTelegram() {
+  await api('PUT','/api/settings',{telegram_token:document.getElementById('s-tg-token').value,telegram_chat_id:document.getElementById('s-tg-chatid').value});
+  toast('✓ Telegram настройки сохранены');
+}
+async function testTelegram() {
+  toast('Отправляю тест...');
+  const res=await api('POST','/api/telegram/test');
+  toast(res?.ok?'✓ Сообщение отправлено в Telegram':'✗ Ошибка — проверьте token и chat_id');
+}
+async function saveAgentSettings() {
+  await api('PUT','/api/settings',{heartbeat_interval:document.getElementById('s-heartbeat').value,offline_timeout:document.getElementById('s-offline-timeout').value});
+  toast('✓ Сохранено');
+}
+function setTheme(theme, save=true) {
+  document.documentElement.setAttribute('data-theme',theme);
+  localStorage.setItem('theme',theme);
+  const db=document.getElementById('theme-dark-btn');
+  const lb=document.getElementById('theme-light-btn');
+  if(db) { db.style.background=theme==='dark'?'var(--accent-bg)':'transparent'; db.style.borderColor=theme==='dark'?'var(--accent-border)':'var(--border)'; db.style.color=theme==='dark'?'#a5b4fc':'var(--text3)'; }
+  if(lb) { lb.style.background=theme==='light'?'var(--accent-bg)':'transparent'; lb.style.borderColor=theme==='light'?'var(--accent-border)':'var(--border)'; lb.style.color=theme==='light'?'#a5b4fc':'var(--text3)'; }
+}
+function setGridCols(cols) {
+  localStorage.setItem('gridCols',cols);
+  document.getElementById('grid')?.style.setProperty('--cols',cols);
+  const sel=document.getElementById('s-grid-columns');
+  if(sel) sel.value=cols;
+}
+// Groups
+async function loadGroups() {
+  groups=await api('GET','/api/groups')||[];
+  const el=document.getElementById('groups-list'); if(!el) return;
+  if(!groups.length){el.innerHTML='<div style="color:var(--text4);font-size:13px">Нет групп</div>';return;}
+  el.innerHTML=groups.map(g=>`<div class="snap-item">
+    <div><div class="snap-name">${g.name}</div><div class="snap-meta">${g.city||'—'} · ${g.lat?`${g.lat}, ${g.lng}`:'без координат'}</div></div>
+    <button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="deleteGroup(${g.id})">✕</button>
+  </div>`).join('');
+  // Update group selects in add router modal
+  const gs=document.getElementById('f-group');
+  if(gs) gs.innerHTML='<option value="">— без группы —</option>'+groups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
+}
+async function addGroup() {
+  const name=document.getElementById('g-name')?.value; if(!name){toast('Введите название');return;}
+  const city=document.getElementById('g-city')?.value;
+  const lat=parseFloat(document.getElementById('g-lat')?.value)||null;
+  const lng=parseFloat(document.getElementById('g-lng')?.value)||null;
+  await api('POST','/api/groups',{name,city,lat,lng});
+  toast(`✓ Группа "${name}" добавлена`);
+  document.getElementById('g-name').value=''; document.getElementById('g-city').value='';
+  loadGroups();
+}
+async function deleteGroup(id) { if(!confirm('Удалить группу?')) return; await api('DELETE',`/api/groups/${id}`); loadGroups(); toast('Группа удалена'); }
+// System info
+async function loadSystemInfo() {
+  const info=await api('GET','/api/system');
+  const el=document.getElementById('system-info'); if(!el) return;
+  if(!info){el.innerHTML='<div style="color:var(--text4)">Ошибка загрузки</div>';return;}
+  const fmtSize=b=>`${(b/1024/1024).toFixed(2)} MB`;
+  const fmtUptime=s=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return `${h}ч ${m}мин`;};
+  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    ${[['Название',info.name],['Версия','v'+info.version],['Node.js',info.nodeVersion],['Uptime сервера',fmtUptime(info.uptime)],['База данных',fmtSize(info.dbSize)],['Роутеров в БД',info.routers],['Событий в БД',info.events],['Снапшотов',info.snapshots]].map(([k,v])=>`<div class="stat-kv" style="padding:8px;background:var(--surface);border-radius:6px"><span>${k}</span><span style="font-family:var(--mono)">${v}</span></div>`).join('')}
+  </div>`;
+}
+function downloadDbBackup() { window.open('/api/backup/download?token='+encodeURIComponent(authToken)); }
+
+// ════════════════════════════════════════════════════════ Toast
+let toastTimer;
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+// ════════════════════════════════════════════════════════ Init
+async function init() {
+  // Apply theme IMMEDIATELY from localStorage to avoid flash
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  setTheme(savedTheme, false);
+  const savedCols = localStorage.getItem('gridCols') || '3';
+  setGridCols(savedCols);
+  // язык: только ru
+  // Load groups first
+  groups = await api('GET','/api/groups').catch(()=>[]) || [];
+  // Load routers
+  try {
+    await loadRouters();
+  } catch(e) {
+    showErrorPage('Не удалось загрузить данные с сервера.');
+    return;
+  }
+  // Render templates
+  renderTemplates();
+}
+
+// Apply theme instantly before scripts run (avoid dark flash on light theme)
+(function(){ const t=localStorage.getItem('theme'); if(t) document.documentElement.setAttribute('data-theme',t); })();
+
+// Start
+checkAuth();
+</script>
+
+
+</body></html>

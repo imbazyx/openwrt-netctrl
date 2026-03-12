@@ -1,0 +1,8 @@
+node_modules/
+data/
+*.bak
+*.db
+*.db-shm
+*.db-wal
+cookies.txt
+.env
