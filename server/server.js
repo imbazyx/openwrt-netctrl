@@ -440,12 +440,15 @@ app.get('/api/update-history', authMiddleware, (req, res) => {
   res.json(db.all('SELECT * FROM update_history ORDER BY created_at DESC LIMIT 100'));
 });
 
+// Версия — из package.json, чтобы /api/system и npm-версия не расходились
+const VERSION = require('./package.json').version;
+
 // ─── System info ──────────────────────────────────────────────────────────────
 app.get('/api/system', authMiddleware, (req, res) => {
   let dbSize = 0;
   try { dbSize = fs.statSync(process.env.DB_PATH || path.join(__dirname, 'netctrl.db')).size; } catch(e) {}
   res.json({
-    version:  '1.0.0',
+    version:  VERSION,
     name:     db.setting('app_name'),
     uptime:   Math.floor(process.uptime()),
     dbSize:   dbSize,

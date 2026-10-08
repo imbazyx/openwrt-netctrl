@@ -1,6 +1,6 @@
 {
   "name": "openwrt-netctrl",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "OpenWRT NetCtrl — Fleet Management Panel",
   "main": "server.js",
   "scripts": { "start": "node server.js", "dev": "node --watch server.js" },
