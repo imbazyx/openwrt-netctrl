@@ -3,12 +3,14 @@ services:
     build: .
     container_name: netctrl
     restart: unless-stopped
+    # host-сеть нужна, чтобы панель была видна роутерам по их LAN-адресам.
+    # Внимание: порт 3000 публикуется на всех интерфейсах хоста.
+    # Не выставляйте наружу без HTTPS-прокси — авторизация включена по умолчанию,
+    # но она не заменяет TLS.
     network_mode: host
     volumes:
       - ./data:/app/data
     environment:
       - PORT=3000
       - DB_PATH=/app/data/netctrl.db
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+      - SSH_TIMEOUT_MS=20000

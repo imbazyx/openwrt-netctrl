@@ -29,6 +29,7 @@ db.exec(`
     lat         REAL DEFAULT NULL,
     lng         REAL DEFAULT NULL,
     group_id    INTEGER DEFAULT NULL,
+    agent_key   TEXT DEFAULT NULL,
     last_seen   TEXT,
     created_at  TEXT DEFAULT (datetime('now'))
   );
@@ -91,9 +92,13 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_events_router  ON events(router_id, created_at);
 `);
 
+// Миграции для баз, созданных прошлыми версиями
+const cols = new Set(db.prepare('PRAGMA table_info(routers)').all().map(c => c.name));
+if (!cols.has('agent_key')) db.exec('ALTER TABLE routers ADD COLUMN agent_key TEXT DEFAULT NULL');
+
 // Default settings
 const defaults = {
-  auth_enabled:      '0',
+  auth_enabled:      '1',
   admin_password:    'admin',
   app_name:          'OpenWRT NetCtrl',
   theme:             'dark',
@@ -104,6 +109,7 @@ const defaults = {
   offline_timeout:   '120',
   grid_columns:      '3',
   backup_interval:   'weekly',
+  agent_key:         '',
   auth_token:        require('crypto').randomBytes(32).toString('hex'),
 };
 const insSet = db.prepare('INSERT OR IGNORE INTO settings (key,value) VALUES (?,?)');
@@ -122,5 +128,9 @@ module.exports = {
   get:  (sql, p=[]) => db.prepare(sql).get(...p),
   run:  (sql, p=[]) => { const r = db.prepare(sql).run(...p); return r.lastInsertRowid; },
   setting: (key) => { const r = db.prepare('SELECT value FROM settings WHERE key=?').get(key); return r ? r.value : null; },
-  setSetting: (key, value) => db.prepare('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)').run(key, value),
+  // better-sqlite3 падает на object/array/undefined — приводим к строке на границе
+  setSetting: (key, value) => {
+    const v = (value === null || value === undefined) ? '' : (typeof value === 'object' ? JSON.stringify(value) : String(value));
+    return db.prepare('INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)').run(key, v);
+  },
 };

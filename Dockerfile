@@ -1,8 +1,7 @@
 FROM node:20-alpine
-RUN apk add --no-cache openssh-client sshpass
 WORKDIR /app
-COPY server/package.json ./
-RUN npm install --omit=dev
+COPY server/package.json server/package-lock.json* ./
+RUN npm ci --omit=dev || npm install --omit=dev
 COPY server/ ./
 COPY client/ ./client/
 COPY agent/ ./agent/

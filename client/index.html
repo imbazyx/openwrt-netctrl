@@ -774,6 +774,18 @@ wget http://СЕРВЕР:3000/agent/install.sh -O - | sh</div>
       <h3>ℹ️ О системе</h3>
       <div id="system-info"><div class="spinner" style="margin:20px auto"></div></div>
     </div>
+    <div class="section-card">
+      <h3>🔑 Ключ регистрации роутеров</h3>
+      <p style="color:var(--text3);font-size:12px;margin-bottom:10px">
+        Общий секрет для <code>/api/routers/register</code>. Пока пусто — регистрация открыта (обычная LAN).
+        Задайте ключ перед выставлением панели наружу.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <code id="agent-key-value" style="flex:1;min-width:200px;font-size:12px">загрузка…</code>
+        <button class="btn btn-secondary" onclick="showAgentKey()">Показать</button>
+        <button class="btn btn-primary" onclick="generateAgentKey()">Сгенерировать</button>
+      </div>
+    </div>
   </div>
 </div>
 </main>
@@ -1100,6 +1112,7 @@ function editRouter(id) {
   document.getElementById('f-ssh-user').value=r.ssh_user||'root';
   document.getElementById('f-ssh-port').value=r.ssh_port||22;
   document.getElementById('f-ssh-pass').value='';
+  document.getElementById('f-ssh-pass').placeholder = r.ssh_pass_set ? '•••••••• — пусто = не менять' : 'не задан';
   openAddModal(id);
   // Set group after modal opens (select is populated inside openAddModal)
   setTimeout(()=>{
@@ -1215,7 +1228,7 @@ function openSSH(id) {
   fitAddon=new FitAddon.FitAddon();
   term.loadAddon(fitAddon);
   const wsProto=location.protocol==='https:'?'wss:':'ws:';
-  sshWs=new WebSocket(`${wsProto}//${location.host}/ws/ssh?id=${r.id}`);
+  sshWs=new WebSocket(`${wsProto}//${location.host}/ws/ssh?id=${r.id}&token=${encodeURIComponent(authToken)}`);
   sshWs.binaryType='arraybuffer';
   sshWs.onopen=()=>{
     clearInterval(timer);
@@ -1611,8 +1624,33 @@ async function loadSystemInfo() {
   el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
     ${[['Название',info.name],['Версия','v'+info.version],['Node.js',info.nodeVersion],['Uptime сервера',fmtUptime(info.uptime)],['База данных',fmtSize(info.dbSize)],['Роутеров в БД',info.routers],['Событий в БД',info.events],['Снапшотов',info.snapshots]].map(([k,v])=>`<div class="stat-kv" style="padding:8px;background:var(--surface);border-radius:6px"><span>${k}</span><span style="font-family:var(--mono)">${v}</span></div>`).join('')}
   </div>`;
+  const ak=document.getElementById('agent-key-value');
+  if(ak) api('GET','/api/agent-key').then(r=>{ ak.textContent = r?.agent_key ? '•••••••• (задан)' : 'не задан — регистрация открыта'; }).catch(()=>{});
 }
-function downloadDbBackup() { window.open('/api/backup/download?token='+encodeURIComponent(authToken)); }
+async function showAgentKey() {
+  const r = await api('GET','/api/agent-key');
+  if(!r?.agent_key) { toast('Ключ не задан'); return; }
+  prompt('Ключ регистрации (нужен установщику агента):', r.agent_key);
+}
+async function generateAgentKey() {
+  if(!confirm('Сгенерировать новый ключ? Уже установленные агенты продолжат работать — у каждого роутера свой ключ.')) return;
+  const key = Array.from(crypto.getRandomValues(new Uint8Array(24)), b=>b.toString(16).padStart(2,'0')).join('');
+  const res = await api('PUT','/api/settings',{agent_key:key});
+  if(res?.ok) { document.getElementById('agent-key-value').textContent = key; toast('✓ Ключ сгенерирован'); }
+  else toast('Ошибка: ' + (res?.error || 'неизвестно'));
+}
+async function downloadDbBackup() {
+  // Токен уходит заголовком: в query он попал бы в логи и историю браузера
+  const r = await fetch('/api/backup/download', { headers: { 'x-auth-token': authToken } });
+  if (!r.ok) { toast('Ошибка: ' + (r.status === 401 ? 'нет доступа' : r.status)); return; }
+  const blob = await r.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `netctrl-backup-${new Date().toISOString().slice(0,10)}.db`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('✓ Бэкап скачан');
+}
 
 // ════════════════════════════════════════════════════════ Toast
 let toastTimer;
